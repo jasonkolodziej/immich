@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { spawn } from 'node:child_process';
-import fs from 'node:fs';
+import { default as path } from 'node:path';
 import { StorageCore } from 'src/cores/storage.core';
 import { OnEvent } from 'src/decorators';
 import { ImmichWorker, StorageFolder } from 'src/enum';
@@ -73,7 +73,7 @@ export class BackupService extends BaseService {
     toDelete.push(...failedBackups);
 
     for (const file of toDelete) {
-      await this.storageRepository.unlink(`${backupsFolder}/${file}`);
+      await this.storageRepository.unlink(path.join(backupsFolder, file));
     }
     this.logger.debug(`Database Backup Cleanup Finished, deleted ${toDelete.length} backups`);
   }
@@ -98,9 +98,12 @@ export class BackupService extends BaseService {
           stdio: [pgdump.stdout, 'pipe', 'pipe'],
         });
 
-        const backupFilePath = `${StorageCore.getBaseFolder(StorageFolder.BACKUPS)}/immich-db-backup-${Date.now()}.sql.gz.tmp`;
+        const backupFilePath = path.join(
+          StorageCore.getBaseFolder(StorageFolder.BACKUPS),
+          `immich-db-backup-${Date.now()}.sql.gz.tmp`,
+        );
 
-        const fileStream = fs.createWriteStream(backupFilePath);
+        const fileStream = this.storageRepository.createWriteStream(backupFilePath);
 
         gzip.stdout.pipe(fileStream);
 
