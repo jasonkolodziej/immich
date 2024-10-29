@@ -67,21 +67,21 @@ const getEnv = (): EnvData => {
     tls: {
       rejectUnauthorized: false,
       ca:
-        process.env.REDIS_TLS_CA_FILE && process.env.IMMICH_CERTS_LOCATION && process.env.REDIS_CERTS_LOCATION
+        process.env.REDIS_TLS_CA_FILENAME  && process.env.REDIS_CERTS_LOCATION
           ? readFileSync(
-              process.env.IMMICH_CERTS_LOCATION + process.env.REDIS_CERTS_LOCATION + process.env.REDIS_TLS_CA_FILE,
+              process.env.REDIS_CERTS_LOCATION + '/' + process.env.REDIS_TLS_CA_FILENAME,
             ).toString() || ''
           : '',
       key:
-        process.env.REDIS_TLS_KEY_FILE && process.env.IMMICH_CERTS_LOCATION && process.env.REDIS_CERTS_LOCATION
+        process.env.REDIS_TLS_KEY_FILENAME  && process.env.REDIS_CERTS_LOCATION
           ? readFileSync(
-              process.env.IMMICH_CERTS_LOCATION + process.env.REDIS_CERTS_LOCATION + process.env.REDIS_TLS_KEY_FILE,
+ process.env.REDIS_CERTS_LOCATION + '/client/' + process.env.REDIS_TLS_KEY_FILENAME,
             ).toString() || ''
           : '',
       cert:
-        process.env.REDIS_TLS_CERT_FILE && process.env.IMMICH_CERTS_LOCATION && process.env.REDIS_CERTS_LOCATION
+        process.env.REDIS_TLS_CERT_FILENAME && process.env.REDIS_CERTS_LOCATION
           ? readFileSync(
-              process.env.IMMICH_CERTS_LOCATION + process.env.REDIS_CERTS_LOCATION + process.env.REDIS_TLS_CERT_FILE,
+               process.env.REDIS_CERTS_LOCATION + '/client/' + process.env.REDIS_TLS_CERT_FILENAME,
             ).toString() || ''
           : '',
     } as TLSCommonConnectionParams,
@@ -152,21 +152,21 @@ const getEnv = (): EnvData => {
         ssl: {
           rejectUnauthorized: false,
           ca:
-            process.env.DB_TLS_CA_FILE && process.env.IMMICH_CERTS_LOCATION && process.env.DB_CERTS_LOCATION
+            process.env.DB_TLS_CA_FILENAME  && process.env.DB_CERTS_LOCATION
               ? readFileSync(
-                  process.env.IMMICH_CERTS_LOCATION + process.env.DB_CERTS_LOCATION + process.env.DB_TLS_CA_FILE,
+                   process.env.DB_CERTS_LOCATION + '/' + process.env.DB_TLS_CA_FILENAME,
                 ).toString() || ''
               : '',
           key:
-            process.env.DB_TLS_KEY_FILE && process.env.IMMICH_CERTS_LOCATION && process.env.DB_CERTS_LOCATION
+            process.env.DB_TLS_KEY_FILENAME && process.env.DB_CERTS_LOCATION
               ? readFileSync(
-                  process.env.IMMICH_CERTS_LOCATION + process.env.DB_CERTS_LOCATION + process.env.DB_TLS_KEY_FILE,
+                  process.env.DB_CERTS_LOCATION + '/client/' + process.env.DB_TLS_KEY_FILENAME,
                 ).toString() || ''
               : '',
           cert:
-            process.env.DB_TLS_CERT_FILE && process.env.IMMICH_CERTS_LOCATION && process.env.DB_CERTS_LOCATION
+            process.env.DB_TLS_CERT_FILENAME && process.env.DB_CERTS_LOCATION
               ? readFileSync(
-                  process.env.IMMICH_CERTS_LOCATION + process.env.DB_CERTS_LOCATION + process.env.DB_TLS_CERT_FILE,
+                  process.env.DB_CERTS_LOCATION + '/client/'  + process.env.DB_TLS_CERT_FILENAME,
                 ).toString() || ''
               : '',
         } as TLSCommonConnectionParams,

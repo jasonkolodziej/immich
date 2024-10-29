@@ -7,11 +7,11 @@ export LD_PRELOAD="$lib_path"
 export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/lib/jellyfin-ffmpeg/lib"
 
 read_file_and_export() {
-	if [ -n "${!1}" ]; then
-		content="$(cat "${!1}")"
-		export "$2"="${content}"
-		unset "$1"
-	fi
+  if [ -n "${!1}" ]; then
+    content="$(cat "${!1}")"
+    export "$2"="${content}"
+    unset "$1"
+  fi
 }
 read_file_and_export "DB_URL_FILE" "DB_URL"
 read_file_and_export "DB_HOSTNAME_FILE" "DB_HOSTNAME"
@@ -25,5 +25,14 @@ echo "Detected CPU Cores: $CPU_CORES"
 if [ "$CPU_CORES" -gt 4 ]; then
   export UV_THREADPOOL_SIZE=$CPU_CORES
 fi
+
+#? SSL
+unset IMMICH_CERTS_LOCATION
+unset REDIS_CERTS_LOCATION
+unset DB_CERTS_LOCATION
+export IMMICH_CERTS_LOCATION="/usr/src/app/certs"
+export REDIS_CERTS_LOCATION=${IMMICH_CERTS_LOCATION}/redis
+export DB_CERTS_LOCATION=${IMMICH_CERTS_LOCATION}/postgres
+# IMMICH_CERTS_LOCATION="/usr/src/app/certs"
 
 exec node /usr/src/app/dist/main "$@"

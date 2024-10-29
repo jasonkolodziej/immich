@@ -1,3 +1,15 @@
+secure-dev:
+	docker compose -f ./docker/docker-compose.secure.dev.yml up --remove-orphans || make dev-down
+
+secure-dev-down:
+	docker compose -f ./docker/docker-compose.secure.dev.yml down --remove-orphans
+
+secure-dev-update:
+	docker compose -f ./docker/docker-compose.secure.dev.yml up --build -V --remove-orphans
+
+secure-dev-scale:
+	docker compose -f ./docker/docker-compose.secure.dev.yml up --build -V  --scale immich-server=3 --remove-orphans
+
 dev:
 	docker compose -f ./docker/docker-compose.dev.yml up --remove-orphans || make dev-down
 
