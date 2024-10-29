@@ -27,15 +27,21 @@ export type DatabaseConnectionParts = {
 };
 
 /**
-  * * TLSCommonConnectionParams - this object will be passed to the TLSSocket constructor
-  * ? Postgres Information: https://node-postgres.com/features/ssl
-  * !   Beware! The ssl object is overwritten when parsing the `connectionString` property. This is derived from the `DatabaseConnectionURL` object.
-  * !   Refer to: https://node-postgres.com/features/ssl#usage-with-connectionstring
-  * ? Redis Information: https://spin.atomicobject.com/configuring-redis-tls/
-  * rejectUnauthorized?: boolean;
-  * ca: string; //* path/to/server-certificates/root.crt
-  * key: string; //* path/to/client-key/service.key
-  * cert: string; //* path/to/client-certificates/service.crt
+  * ### TLSCommonConnectionParams
+  *
+  * @description this object will be passed to the TLSSocket constructor
+  *
+  *? Postgres Information: https://node-postgres.com/features/ssl
+  *
+  *   * Beware! The ssl object is overwritten when parsing the `connectionString` property. This is derived from the `DatabaseConnectionURL` object.
+  *   > Refer to: https://node-postgres.com/features/ssl#usage-with-connectionstring
+  *
+  *? Redis Information: https://spin.atomicobject.com/configuring-redis-tls/
+  *
+  * @param rejectUnauthorized?: boolean;
+  * @param ca: string; //* path/to/server-certificates/root.crt
+  * @param key: string; //* path/to/client-key/service.key
+  * @param cert: string; //* path/to/client-certificates/service.crt
  */
 export type TLSCommonConnectionParams = { //? ssl object or tls object
   rejectUnauthorized?: boolean;
