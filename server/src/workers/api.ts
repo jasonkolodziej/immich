@@ -27,8 +27,11 @@ async function bootstrap() {
   // const httpsOptions = {
   //   key: readFileSync('./secrets/private-key.pem'),
   //   cert: readFileSync('./secrets/public-certificate.pem'),
-  // }; ...httpsOptions
-  const app = await NestFactory.create<NestExpressApplication>(ApiModule, { bufferLogs: true });
+  // };
+  const app = await NestFactory.create<NestExpressApplication>(ApiModule, {
+    bufferLogs: true,
+    // ...httpsOptions
+  });
   const logger = await app.resolve<ILoggerRepository>(ILoggerRepository);
   const configRepository = app.get<IConfigRepository>(IConfigRepository);
 
