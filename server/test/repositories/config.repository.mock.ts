@@ -56,6 +56,9 @@ const envData: EnvData = {
     host: 'redis',
     port: 6379,
     db: 0,
+    tls: {
+      rejectUnauthorized: false,
+    },
   },
 
   resourcePaths: {

@@ -59,6 +59,7 @@ const imports = [
   TypeOrmModule.forFeature(entities),
 ];
 
+//? mtls - https://docs.nestjs.com/faq/multiple-servers https://docs.nestjs.com/microservices/basics#tls-support
 abstract class BaseModule implements OnModuleInit, OnModuleDestroy {
   private get worker() {
     return this.getWorker();

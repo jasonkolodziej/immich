@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { citiesFile, excludePaths } from 'src/constants';
 import { Telemetry } from 'src/decorators';
@@ -61,6 +62,29 @@ const getEnv = (): EnvData => {
     username: process.env.REDIS_USERNAME || undefined,
     password: process.env.REDIS_PASSWORD || undefined,
     path: process.env.REDIS_SOCKET || undefined,
+    //? tls - https://spin.atomicobject.com/configuring-redis-tls/
+    //? this object will be passed to the TLSSocket constructor
+    tls: {
+      rejectUnauthorized: false,
+      ca:
+        process.env.REDIS_TLS_CA_FILE && process.env.IMMICH_CERTS_LOCATION && process.env.REDIS_CERTS_LOCATION
+          ? readFileSync(
+              process.env.IMMICH_CERTS_LOCATION + process.env.REDIS_CERTS_LOCATION + process.env.REDIS_TLS_CA_FILE,
+            ).toString() || ''
+          : '',
+      key:
+        process.env.REDIS_TLS_KEY_FILE && process.env.IMMICH_CERTS_LOCATION && process.env.REDIS_CERTS_LOCATION
+          ? readFileSync(
+              process.env.IMMICH_CERTS_LOCATION + process.env.REDIS_CERTS_LOCATION + process.env.REDIS_TLS_KEY_FILE,
+            ).toString() || ''
+          : '',
+      cert:
+        process.env.REDIS_TLS_CERT_FILE && process.env.IMMICH_CERTS_LOCATION && process.env.REDIS_CERTS_LOCATION
+          ? readFileSync(
+              process.env.IMMICH_CERTS_LOCATION + process.env.REDIS_CERTS_LOCATION + process.env.REDIS_TLS_CERT_FILE,
+            ).toString() || ''
+          : '',
+    },
   };
 
   const redisUrl = process.env.REDIS_URL;
@@ -123,6 +147,29 @@ const getEnv = (): EnvData => {
 
     database: {
       config: {
+        //* ssl - https://node-postgres.com/features/ssl
+        // this object will be passed to the TLSSocket constructor
+        ssl: {
+          rejectUnauthorized: false,
+          ca:
+            process.env.DB_TLS_CA_FILE && process.env.IMMICH_CERTS_LOCATION && process.env.DB_CERTS_LOCATION
+              ? readFileSync(
+                  process.env.IMMICH_CERTS_LOCATION + process.env.DB_CERTS_LOCATION + process.env.DB_TLS_CA_FILE,
+                ).toString() || ''
+              : '',
+          key:
+            process.env.DB_TLS_KEY_FILE && process.env.IMMICH_CERTS_LOCATION && process.env.DB_CERTS_LOCATION
+              ? readFileSync(
+                  process.env.IMMICH_CERTS_LOCATION + process.env.DB_CERTS_LOCATION + process.env.DB_TLS_KEY_FILE,
+                ).toString() || ''
+              : '',
+          cert:
+            process.env.DB_TLS_CERT_FILE && process.env.IMMICH_CERTS_LOCATION && process.env.DB_CERTS_LOCATION
+              ? readFileSync(
+                  process.env.IMMICH_CERTS_LOCATION + process.env.DB_CERTS_LOCATION + process.env.DB_TLS_CERT_FILE,
+                ).toString() || ''
+              : '',
+        },
         type: 'postgres',
         entities: [`${folders.dist}/entities` + '/*.entity.{js,ts}'],
         migrations: [`${folders.dist}/migrations` + '/*.{js,ts}'],

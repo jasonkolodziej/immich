@@ -2,7 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { json } from 'body-parser';
 import cookieParser from 'cookie-parser';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import sirv from 'sirv';
 import { ApiModule } from 'src/app.module';
 import { excludePaths, serverVersion } from 'src/constants';
@@ -23,7 +23,11 @@ async function bootstrap() {
   if (telemetry.metrics.size > 0) {
     bootstrapTelemetry(telemetry.apiPort);
   }
-
+  //? ssl - https://docs.nestjs.com/faq/multiple-servers;
+  // const httpsOptions = {
+  //   key: readFileSync('./secrets/private-key.pem'),
+  //   cert: readFileSync('./secrets/public-certificate.pem'),
+  // }; ...httpsOptions
   const app = await NestFactory.create<NestExpressApplication>(ApiModule, { bufferLogs: true });
   const logger = await app.resolve<ILoggerRepository>(ILoggerRepository);
   const configRepository = app.get<IConfigRepository>(IConfigRepository);

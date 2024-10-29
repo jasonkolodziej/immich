@@ -36,6 +36,13 @@ export interface EnvData {
     queues: RegisterQueueOptions[];
   };
 
+  //? ssl
+  certs?: {
+    ca: string; // path/to/server-certificates/root.crt
+    key: string; // path/to/client-key/postgresql.key
+    cert: string; // path/to/client-certificates/postgresql.crt
+  };
+
   database: {
     config: PostgresConnectionOptions & DatabaseConnectionParams;
     skipMigrations: boolean;

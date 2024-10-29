@@ -14,7 +14,9 @@ export async function bootstrap() {
   if (telemetry.metrics.size > 0) {
     bootstrapTelemetry(telemetry.microservicesPort);
   }
-
+  //? ssl - https://docs.nestjs.com/microservices/basics#tls-support
+  // const key = readFileSync('<pathToKeyFile>', 'utf8').toString();
+  // const cert = readFileSync('<pathToCertFile>', 'utf8').toString();
   const app = await NestFactory.create(MicroservicesModule, { bufferLogs: true });
   const logger = await app.resolve(ILoggerRepository);
   logger.setContext('Bootstrap');
