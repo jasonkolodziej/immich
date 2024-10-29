@@ -5,7 +5,7 @@ import { citiesFile, excludePaths } from 'src/constants';
 import { Telemetry } from 'src/decorators';
 import { ImmichEnvironment, ImmichTelemetry, ImmichWorker, LogLevel } from 'src/enum';
 import { EnvData, IConfigRepository } from 'src/interfaces/config.interface';
-import { DatabaseExtension } from 'src/interfaces/database.interface';
+import { DatabaseExtension, TLSCommonConnectionParams } from 'src/interfaces/database.interface';
 import { QueueName } from 'src/interfaces/job.interface';
 import { setDifference } from 'src/utils/set';
 
@@ -84,7 +84,7 @@ const getEnv = (): EnvData => {
               process.env.IMMICH_CERTS_LOCATION + process.env.REDIS_CERTS_LOCATION + process.env.REDIS_TLS_CERT_FILE,
             ).toString() || ''
           : '',
-    },
+    } as TLSCommonConnectionParams,
   };
 
   const redisUrl = process.env.REDIS_URL;
@@ -169,7 +169,7 @@ const getEnv = (): EnvData => {
                   process.env.IMMICH_CERTS_LOCATION + process.env.DB_CERTS_LOCATION + process.env.DB_TLS_CERT_FILE,
                 ).toString() || ''
               : '',
-        },
+        } as TLSCommonConnectionParams,
         type: 'postgres',
         entities: [`${folders.dist}/entities` + '/*.entity.{js,ts}'],
         migrations: [`${folders.dist}/migrations` + '/*.{js,ts}'],

@@ -10,6 +10,9 @@ export type VectorExtension = DatabaseExtension.VECTOR | DatabaseExtension.VECTO
 export type DatabaseConnectionURL = {
   connectionType: 'url';
   url: string;
+  //TODO: handle ssl object
+  //? ssl - this object will be passed to the TLSSocket constructor
+  ssl?: TLSCommonConnectionParams;
 };
 
 export type DatabaseConnectionParts = {
@@ -19,7 +22,28 @@ export type DatabaseConnectionParts = {
   username: string;
   password: string;
   database: string;
+  //? ssl - this object will be passed to the TLSSocket constructor
+  ssl?: TLSCommonConnectionParams;
 };
+
+/**
+  * * TLSCommonConnectionParams - this object will be passed to the TLSSocket constructor
+  * ? Postgres Information: https://node-postgres.com/features/ssl
+  * !   Beware! The ssl object is overwritten when parsing the `connectionString` property. This is derived from the `DatabaseConnectionURL` object.
+  * !   Refer to: https://node-postgres.com/features/ssl#usage-with-connectionstring
+  * ? Redis Information: https://spin.atomicobject.com/configuring-redis-tls/
+  * rejectUnauthorized?: boolean;
+  * ca: string; //* path/to/server-certificates/root.crt
+  * key: string; //* path/to/client-key/service.key
+  * cert: string; //* path/to/client-certificates/service.crt
+ */
+export type TLSCommonConnectionParams = { //? ssl object or tls object
+  rejectUnauthorized?: boolean;
+  ca: string; //* path/to/server-certificates/root.crt
+  key: string; //* path/to/client-key/service.key
+  cert: string; //* path/to/client-certificates/service.crt
+}
+
 
 export type DatabaseConnectionParams = DatabaseConnectionURL | DatabaseConnectionParts;
 
