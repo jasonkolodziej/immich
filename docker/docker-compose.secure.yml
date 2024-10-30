@@ -92,7 +92,7 @@ x-immich-tls: &x-immich_tls
 #! When `DB_URL` is defined, the `DB_HOSTNAME`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD` and `DB_DATABASE_NAME` database variables are ignored.
 x-immich-postgres-db:
   &common-postgresdb #* image: docker.io/tensorchord/pgvecto-rs:pg14-v0.2.0@sha256:90724186f0a3517cf6914295b5ab410db9ce23190a2d9d0b9dd6463e3fa298f0
-  image: &common-postgresdb-image tensorchord/pgvecto-rs:pg16-v0.2.0
+  image: &common-postgresdb-image tensorchord/pgvecto-rs:pg14-v0.2.0
   environment: &common-postgresdb-env
     DB_USERNAME: '${DB_USERNAME:-postgres}' #? Database Username
     DB_PASSWORD: '${DB_PASSWORD:-postgres}' #? Database Password
@@ -129,6 +129,8 @@ x-immich-postgres-db:
 
   expose: &common-postgresdb-expose
     - 5432
+  ports: &common-postgresdb-ports
+    - 5432:5432
 
 x-postgresdb-pw: &x-postgresdb_pw
   environment: &postgresdb_pw-env
@@ -140,10 +142,20 @@ x-postgresdb-pw: &x-postgresdb_pw
     POSTGRES_HOST: '${DB_HOSTNAME}' #? Database Hostname - Required for `backup` and `database` services
 
 x-postgresdb-tls: &x-postgresdb_tls
+  #     chown postgres /var/lib/postgresql/${DB_TLS_CA_FILE} && chmod 640 /var/lib/postgresql/${DB_TLS_CA_FILE} && \
+  # chown postgres /var/lib/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_CERT_FILE} && \
+  # chmod 640 /var/lib/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_CERT_FILE} && \
+  # chown postgres /var/lib/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_KEY_FILE} && \
+  # chmod 640 /var/lib/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_KEY_FILE} && \
+  #   -c ssl_cert_file=/var/lib/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_CERT_FILE}
+  # -c ssl_key_file=/var/lib/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_KEY_FILE}
+  # -c ssl_ca_file=/var/lib/postgresql/${DB_TLS_CA_FILE}
   command: &postgresdb_tls-command |
-    chown postgres /var/lib/postgresql/${DB_TLS_CA_FILE} && chmod 640 /var/lib/postgresql/${DB_TLS_CA_FILE} && \
-    chown postgres /var/lib/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_CERT_FILE} && chmod 640 /var/lib/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_CERT_FILE} && \
-    chown postgres /var/lib/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_KEY_FILE} && chmod 640 /var/lib/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_KEY_FILE} && \
+    chown postgres /var/lib/postgresql/${DB_TLS_CA_FILE} && \
+    chmod 640 /var/lib/postgresql/${DB_TLS_CA_FILE} && \
+    chown postgres -Rf /var/lib/postgresql/${DB_SERVER_TLS_PATH} && \
+    chmod 640 /var/lib/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_CERT_FILE} && \
+    chmod 640 /var/lib/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_KEY_FILE} && \
     sh -c docker-entrypoint.sh \
     -c shared_preload_libraries=vectors.so
     -c 'search_path="$$user", public, vectors'
@@ -158,6 +170,8 @@ x-postgresdb-tls: &x-postgresdb_tls
 
   #! Do not edit the next line.
   #? If you want to change the database storage location on your system, edit the value of `DB_CERTS_LOCATION` in the .env file
+  #*     ${DB_CERTS_LOCATION}:/var/lib/postgresql/data
+  #* ${DB_CERTS_LOCATION}:/usr/local/postgresql/data
   volumes: &postgresdb_tls-volumes |-
     ${DB_CERTS_LOCATION}:/var/lib/postgresql
 
@@ -208,7 +222,9 @@ x-redis-pw: &x-redis_pw
 #* ## Redis Configuration with TLS
 #? Reference: https://spin.atomicobject.com/configuring-redis-tls/
 #? Reference: https://tienbm90.medium.com/running-redis-tls-with-docker-compose-b89811fb01d3
-x-redis-tls: &x-redis_tls # <<: *common-redis
+x-redis-tls: &x-redis_tls
+  # <<: *common-redis
+  # ? https://hub.docker.com/r/bitnami/redis
   image: &redis_tls-image bitnami/redis:latest
   #? Using mTLS with redis
   #* command: redis-server --tls-port 6379 --tls-cert-file /data/redis.crt --tls-key-file /data/redis.key --tls-ca-cert-file /data/redis.crt
@@ -254,7 +270,9 @@ services:
     extends:
       file: docker-compose.prod.yml
       service: immich-server
-
+    depends_on:
+      - redis
+      - database
     # env_file:
     #   - path: ./secure/.env
 
@@ -269,9 +287,9 @@ services:
       immich_backend:
         aliases:
           - immich.docker
-      immich_frontend:
-        aliases:
-          - immich.docker
+      # immich_frontend:
+      #   aliases:
+      #     - immich.docker
 
     # external_links:
     #   - redis
@@ -292,19 +310,19 @@ services:
     expose:
       - 3003
     networks:
-      immich_frontend:
-        aliases:
-          - immich_machine_learning
-          - immich_ml
+      # immich_frontend:
+      #   aliases:
+      #     - immich_machine_learning
+      #     - immich_ml
       immich_backend:
         aliases:
           - immich_machine_learning
           - immich_ml
 
   redis:
-    extends:
-      file: docker-compose.prod.yml
-      service: redis
+    # extends:
+    #   file: docker-compose.prod.yml
+    #   service: redis
 
     # env_file:
     #   - path: ./secure/.env
@@ -312,8 +330,8 @@ services:
     #? For SSL
     # image: *redis_tls-image
     image: *common-redis-image
-    expose: *common-redis-expose
-    # ports: *common-redis-ports
+    # expose: *common-redis-expose
+    ports: *common-redis-ports
     volumes: *redis_tls-volumes
     command: *redis_tls-command
     environment: *redis_tls-env
@@ -324,22 +342,27 @@ services:
           - redis
 
   database:
-    extends:
-      file: docker-compose.prod.yml
-      service: database
+    # extends:
+    #   file: docker-compose.prod.yml
+    #   service: database
 
     # env_file:
     #   - path: ./secure/.env
+
+    image: *common-postgresdb-image
+    restart: *common-postgresdb-restart
+    healthcheck: *common-postgresdb-healthcheck
     command: *postgresdb_tls-command
     environment: *postgresdb_tls-env
-    expose: *common-postgresdb-expose
+    # expose: *common-postgresdb-expose
+    ports: *common-postgresdb-ports
     volumes:
       - *common-postgresdb-volumes
       - *postgresdb_tls-volumes
     networks:
       immich_backend:
         aliases: #? must contain `$DB_HOSTNAME`, default is `database`
-          - database
+          - immich_database
 
   # immich-prometheus:
   #   extends:
@@ -351,13 +374,13 @@ services:
   #     service: immich-grafana
 
 networks:
-  immich_frontend:
-    {}
-    # external: true
-    # name: cloudflare-tunnel
+  # immich_frontend:
+  #   {}
+  # external: true
+  # name: cloudflare-tunnel
   immich_backend:
-    driver: bridge
-    internal: true
+    # driver: bridge
+    attachable: true
 
 volumes:
   model-cache:
