@@ -170,7 +170,12 @@ services:
     #       -c ssl_cert_file=/var/lib/postgresql/${DB_TLS_CERT_FILE} \
     # -c ssl_key_file=$/var/lib/postgresql/{DB_TLS_KEY_FILE} \
     # -c ssl_ca_file=/var/lib/postgresql/${DB_TLS_CA_FILE}
-    command: >-
+    # command: >-
+    command: |
+      chown postgres /var/lib/postgresql/${DB_TLS_CA_FILENAME} && chmod 640 /var/lib/postgresql/${DB_TLS_CA_FILENAME} && \
+      chown postgres /var/lib/postgresql/server/${DB_TLS_CERT_FILENAME} && chmod 640 /var/lib/postgresql/server/${DB_TLS_CERT_FILENAME} && \
+      chown postgres /var/lib/postgresql/server/${DB_TLS_KEY_FILENAME} && chmod 640 /var/lib/postgresql/server/${DB_TLS_KEY_FILENAME} && \
+      sh -c docker-entrypoint.sh \
       -c shared_preload_libraries=vectors.so
       -c 'search_path="$$user", public, vectors'
       -c logging_collector=on
