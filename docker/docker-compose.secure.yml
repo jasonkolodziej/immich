@@ -121,10 +121,11 @@ x-immich-postgres-db:
     # start_interval: 30s
     start_period: 5m
 
+  #! Do not edit the next line.
+  #? If you want to change the database storage location on your system, edit the value of `DB_DATA_LOCATION` in the .env file
   volumes: &common-postgresdb-volumes |-
-    #! Do not edit the next line.
-    #? If you want to change the database storage location on your system, edit the value of `DB_DATA_LOCATION` in the .env file
     ${DB_DATA_LOCATION}:/var/lib/postgresql/data
+
   expose: &common-postgresdb-expose
     - 5432
 
@@ -153,10 +154,12 @@ x-postgresdb-tls: &x-postgresdb_tls
     -c ssl_cert_file=/var/lib/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_CERT_FILE}
     -c ssl_key_file=/var/lib/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_KEY_FILE}
     -c ssl_ca_file=/var/lib/postgresql/${DB_TLS_CA_FILE}
+
+  #! Do not edit the next line.
+  #? If you want to change the database storage location on your system, edit the value of `DB_CERTS_LOCATION` in the .env file
   volumes: &postgresdb_tls-volumes |-
-    #! Do not edit the next line.
-    #? If you want to change the certificate storage location on your system, edit the value of `DB_CERT_LOCATION` in the .env file
-    - ${DB_CERTS_LOCATION}:/var/lib/postgresql
+    ${DB_CERTS_LOCATION}:/var/lib/postgresql
+
   environment: &postgresdb_tls-env
     <<: [*common-postgresdb-env, *immich_tls-env]
     # #? for certificates
@@ -238,7 +241,7 @@ x-redis-tls: &x-redis_tls
 services:
   immich-server:
     extends:
-      file: docker-compose.prod.yml
+      file: ./secure/docker-compose.prod.yml
       service: immich-server
 
     # env_file:
@@ -261,7 +264,7 @@ services:
 
   immich-machine-learning:
     extends:
-      file: docker-compose.prod.yml
+      file: ./secure/docker-compose.prod.yml
       service: immich-machine-learning
 
     # env_file:
@@ -282,7 +285,7 @@ services:
 
   redis:
     extends:
-      file: docker-compose.prod.yml
+      file: ./secure/docker-compose.prod.yml
       service: redis
 
     # env_file:
@@ -300,7 +303,7 @@ services:
 
   database:
     extends:
-      file: docker-compose.prod.yml
+      file: ./secure/docker-compose.prod.yml
       service: database
 
     # env_file:
@@ -308,20 +311,22 @@ services:
 
     environment: *postgresdb_tls-env
     expose: *common-postgresdb-expose
-    volumes: [*common-postgresdb-volumes, *postgresdb_tls-volumes]
+    volumes:
+      - *common-postgresdb-volumes
+      - *postgresdb_tls-volumes
     networks:
       immich_backend:
         aliases: #? must contain `$DB_HOSTNAME`, default is `database`
           - database
 
-  immich-prometheus:
-    extends:
-      file: docker-compose.prod.yml
-      service: immich-prometheus
-  immich-grafana:
-    extends:
-      file: docker-compose.prod.yml
-      service: immich-grafana
+  # immich-prometheus:
+  #   extends:
+  #     file: docker-compose.prod.yml
+  #     service: immich-prometheus
+  # immich-grafana:
+  #   extends:
+  #     file: docker-compose.prod.yml
+  #     service: immich-grafana
 
 networks:
   immich_frontend:
@@ -330,3 +335,6 @@ networks:
   immich_backend:
     driver: bridge
     internal: true
+
+volumes:
+  model-cache:
