@@ -70,6 +70,7 @@ x-immich-tls: &x-immich_tls
     REDIS_TLS_CERT_FILE: redis.crt
     #? Redis CA certificate File path name
     REDIS_TLS_CA_FILE: ca.crt
+    REDIS_TLS_ENABLED: yes
     #? DB_CERTS_LOCATION - Host location of the Postgres Certs / Keys (This should include both dirs: server, client)
     DB_CERTS_LOCATION: ${IMMICH_CERTS_LOCATION}/postgres
     #? Directory, under mounted DB_CERTS_LOCATION, to Server's Key and Certificate File
@@ -207,25 +208,27 @@ x-redis-pw: &x-redis_pw
 #* ## Redis Configuration with TLS
 #? Reference: https://spin.atomicobject.com/configuring-redis-tls/
 #? Reference: https://tienbm90.medium.com/running-redis-tls-with-docker-compose-b89811fb01d3
-x-redis-tls: &x-redis_tls
-  <<: *common-redis
+x-redis-tls: &x-redis_tls # <<: *common-redis
+  image: &redis_tls-image bitnami/redis:latest
   #? Using mTLS with redis
   #* command: redis-server --tls-port 6379 --tls-cert-file /data/redis.crt --tls-key-file /data/redis.key --tls-ca-cert-file /data/redis.crt
   #* command:
-  #*  chmod 640 /data/${REDIS_SERVER_TLS_PATH}/${REDIS_TLS_CERT_FILE} && \
-  #*  chmod 640 /data/${REDIS_CLIENT_TLS_PATH}/${REDIS_TLS_CERT_FILE} && \
+  # chown redis:redis /data/${REDIS_TLS_CA_FILE} && \
+  # chmod -Rf 640 /data/${REDIS_TLS_CA_FILE} && \
+  # chown -R redis:redis /data/${REDIS_SERVER_TLS_PATH} && \
+  # chmod -Rf 640 /data/${REDIS_SERVER_TLS_PATH} && \
+  # chown -R redis:redis /data/${REDIS_CLIENT_TLS_PATH} && \
+  # chmod -Rf 640 /data/${REDIS_CLIENT_TLS_PATH} && \
+  # --tls-cert-file=/data/${REDIS_SERVER_TLS_PATH}/${REDIS_TLS_CERT_FILE} \
+  # --tls-key-file=/data/${REDIS_SERVER_TLS_PATH}/${REDIS_TLS_KEY_FILE} \
+  # --tls-ca-cert-file=/data/${REDIS_TLS_CA_FILE} \
+  # --tls-auth-clients=${REDIS_TLS_ENABLED}
   command: &redis_tls-command |
-    chown -R redis:redis /usr/local/etc/redis/${REDIS_TLS_CA_FILE} && \
-    chown -R redis:redis /usr/local/etc/redis/${REDIS_SERVER_TLS_PATH} && \
-    chown -R redis:redis /usr/local/etc/redis/${REDIS_CLIENT_TLS_PATH} && \
-    sh -c docker-entrypoint.sh  \
-    --tls-cert-file /usr/local/etc/redis/${REDIS_SERVER_TLS_PATH}/${REDIS_TLS_CERT_FILE} \
-    --tls-key-file /usr/local/etc/redis/${REDIS_SERVER_TLS_PATH}/${REDIS_TLS_KEY_FILE} \
-    --tls-ca-cert-file /usr/local/etc/redis/${REDIS_TLS_CA_FILE} \
-    --tls-auth-clients ${REDIS_TLS_ENABLED}
+    redis-server
 
   healthcheck: &redis_tls-healthcheck
-    test: redis-cli ping -p 6379 --tls --cacert /usr/local/etc/redis/${REDIS_TLS_CA_FILE} --cert /usr/local/etc/redis/${REDIS_CLIENT_TLS_PATH}/${REDIS_TLS_CERT_FILE} --key /usr/local/etc/redis/${REDIS_CLIENT_TLS_PATH}/${REDIS_TLS_KEY_FILE} || exit 1
+    <<: *common-redis-healthcheck
+    # test: redis-cli ping -p 6379 --tls --cacert /data/${REDIS_TLS_CA_FILE} --cert /data/${REDIS_CLIENT_TLS_PATH}/${REDIS_TLS_CERT_FILE} --key /data/${REDIS_CLIENT_TLS_PATH}/${REDIS_TLS_KEY_FILE} || exit 1
   #? For client connection use
   #* entrypoint: redis-cli
   #* command: -h redis-server -p 6379 --tls --cacert /certs/ca.crt --cert /certs/client.crt --key /certs/client.key
@@ -238,9 +241,9 @@ x-redis-tls: &x-redis_tls
     # REDIS_TLS_ENABLED: yes
     # REDIS_TLS_PORT: "${REDIS_PORT:-6379}"
     # REDIS_CERTS_LOCATION: ${REDIS_CERTS_LOCATION:-"$IMMICH_CERTS_LOCATION/redis"}
-    # REDIS_TLS_CERT_FILE: ${REDIS_CERTS_LOCATION}/server/${REDIS_TLS_CERT_FILENAME}
-    # REDIS_TLS_KEY_FILE: ${REDIS_CERTS_LOCATION}/server/${REDIS_TLS_KEY_FILENAME}
-    # REDIS_TLS_CA_FILE: ${REDIS_CERTS_LOCATION}/${REDIS_TLS_CA_FILENAME}
+    REDIS_TLS_CERT_FILE: /usr/local/etc/redis/${REDIS_SERVER_TLS_PATH}/${REDIS_TLS_CERT_FILE}
+    REDIS_TLS_KEY_FILE: /usr/local/etc/redis/${REDIS_SERVER_TLS_PATH}/${REDIS_TLS_KEY_FILE}
+    REDIS_TLS_CA_FILE: /usr/local/etc/redis/${REDIS_TLS_CA_FILE}
     REDIS_TLS_ENABLED: yes # ${REDIS_TLS_ENABLED:-yes}
     REDIS_TLS_PORT: '${REDIS_PORT:-6379}'
     #? for certificates
@@ -280,8 +283,8 @@ services:
     #   - redis
     #   - database
 
-    extra_hosts:
-      - 'host.docker.internal:host-gateway'
+    # extra_hosts:
+    #   - 'host.docker.internal:host-gateway'
 
   immich-machine-learning:
     extends:
@@ -313,8 +316,10 @@ services:
     #   - path: ./secure/.env
 
     #? For SSL
+    # image: *redis_tls-image
     image: *common-redis-image
     expose: *common-redis-expose
+    # ports: *common-redis-ports
     volumes: *redis_tls-volumes
     command: *redis_tls-command
     environment: *redis_tls-env
@@ -358,7 +363,7 @@ networks:
     # name: cloudflare-tunnel
   immich_backend:
     driver: bridge
-    internal: true
+    # internal: true
 
 volumes:
   model-cache:
