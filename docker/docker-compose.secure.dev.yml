@@ -51,6 +51,10 @@ services:
     ports:
       - 9230:9230
       - 9231:9231
+    networks:
+      immich_backend:
+        aliases:
+          - immich_server
     depends_on:
       - redis
       - database
@@ -78,6 +82,13 @@ services:
         soft: 1048576
         hard: 1048576
     restart: unless-stopped
+    networks:
+      immich_frontend:
+        aliases:
+          - immich_web
+      immich_backend:
+        aliases:
+          - immich_web
     depends_on:
       - immich-server
 
@@ -92,8 +103,6 @@ services:
       dockerfile: Dockerfile
       args:
         - DEVICE=cpu # set to one of [armnn, cuda, openvino, openvino-wsl] for accelerated inference
-    ports:
-      - 3003:3003
     volumes:
       - ../machine-learning:/usr/src/app
       - model-cache:/cache
@@ -102,6 +111,18 @@ services:
     depends_on:
       - database
     restart: unless-stopped
+    #? ssl
+    expose:
+      - 3003
+    networks:
+      immich_frontend:
+        aliases:
+          - immich_machine_learning
+          - immich_ml
+      immich_backend:
+        aliases:
+          - immich_machine_learning
+          - immich_ml
     healthcheck:
       disable: false
 
@@ -125,6 +146,12 @@ services:
       --tls-key-file /data/server/${REDIS_TLS_KEY_FILENAME} \
       --tls-ca-cert-file /data/${REDIS_TLS_CA_FILENAME} \
       --tls-auth-clients ${REDIS_TLS_ENABLED}
+    expose:
+      - 6379
+    networks:
+      immich_backend:
+        aliases: #? must contain `$REDIS_HOSTNAME`, default is `redis`
+          - redis
     volumes:
       # Do not edit the next line. If you want to change the redis storage location on your system, edit the value of REDIS_CERTS_LOCATION in the .env file
       - ${REDIS_CERTS_LOCATION}:/data
@@ -160,8 +187,12 @@ services:
       #? `chmod og-rwx $DB_CERTS_LOCAITON/*` on host before running this
       - ${DB_CERTS_LOCATION}:/var/lib/postgresql
       - ${UPLOAD_LOCATION}/postgres:/var/lib/postgresql/data
-    ports:
-      - 5432:5432
+    expose:
+      - 5432
+    networks:
+      immich_backend:
+        aliases: #? must contain `$DB_HOSTNAME`, default is `database`
+          - database
     healthcheck:
       test: pg_isready --dbname='${DB_DATABASE_NAME}' --username='${DB_USERNAME}' || exit 1; Chksum="$$(psql --dbname='${DB_DATABASE_NAME}' --username='${DB_USERNAME}' --tuples-only --no-align --command='SELECT COALESCE(SUM(checksum_failures), 0) FROM pg_stat_database')"; echo "checksum failure count is $$Chksum"; [ "$$Chksum" = '0' ] || exit 1
       interval: 5m
@@ -236,3 +267,11 @@ volumes:
   model-cache:
   prometheus-data:
   grafana-data:
+
+networks:
+  immich_frontend:
+    # external: true
+    # name: cloudflare-tunnel
+  immich_backend:
+    driver: bridge
+    internal: true
