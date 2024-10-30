@@ -339,7 +339,7 @@ services:
     networks:
       immich_backend:
         aliases: #? must contain `$DB_HOSTNAME`, default is `database`
-          - immich_database
+          - database
 
   # immich-prometheus:
   #   extends:
@@ -357,7 +357,7 @@ networks:
     # name: cloudflare-tunnel
   immich_backend:
     driver: bridge
-    # internal: true
+    internal: true
 
 volumes:
   model-cache:
