@@ -173,12 +173,12 @@ x-postgresdb-tls: &x-postgresdb_tls
   # chown postgres /usr/local/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_KEY_FILE} && \
   # chmod 640 /usr/local/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_KEY_FILE}" \
   command: &postgresdb_tls-command >-
-    chown postgres /var/lib/postgresql/certs/${DB_TLS_CA_FILE} &&
-    chmod 640 /var/lib/postgresql/certs/${DB_TLS_CA_FILE} &&
-    chown postgres /var/lib/postgresql/certs/${DB_SERVER_TLS_PATH}/${DB_TLS_CERT_FILE} &&
-    chmod 640 /var/lib/postgresql/certs/${DB_SERVER_TLS_PATH}/${DB_TLS_CERT_FILE} &&
-    chown postgres /var/lib/postgresql/certs/${DB_SERVER_TLS_PATH}/${DB_TLS_KEY_FILE} &&
-    chmod 640 /var/lib/postgresql/certs/${DB_SERVER_TLS_PATH}/${DB_TLS_KEY_FILE} &&
+    chown postgres /var/lib/postgresql/data/${DB_TLS_CA_FILE} &&
+    chmod 640 /var/lib/postgresql/data/${DB_TLS_CA_FILE} &&
+    chown postgres /var/lib/postgresql/data/${DB_TLS_CERT_FILE} &&
+    chmod 640 /var/lib/postgresql/data/${DB_TLS_CERT_FILE} &&
+    chown postgres /var/lib/postgresql/data/${DB_TLS_KEY_FILE} &&
+    chmod 640 /var/lib/postgresql/data/${DB_TLS_KEY_FILE} &&
     postgres -c shared_preload_libraries=vectors.so
     -c 'search_path="$$user", public, vectors'
     -c logging_collector=on
@@ -186,17 +186,20 @@ x-postgresdb-tls: &x-postgresdb_tls
     -c shared_buffers=512MB
     -c wal_compression=on
     -c ssl=on
-    -c ssl_cert_file=/var/lib/postgresql/certs/${DB_SERVER_TLS_PATH}/${DB_TLS_CERT_FILE}
-    -c ssl_key_file=/var/lib/postgresql/certs/${DB_SERVER_TLS_PATH}/${DB_TLS_KEY_FILE}
-    -c ssl_ca_file=/var/lib/postgresql/certs/${DB_TLS_CA_FILE}
+    -c ssl_cert_file=/var/lib/postgresql/data/${DB_TLS_CERT_FILE}
+    -c ssl_key_file=/var/lib/postgresql/data/${DB_TLS_KEY_FILE}
+    -c ssl_ca_file=/var/lib/postgresql/data/${DB_TLS_CA_FILE}
 
   #! Do not edit the next line.
   #? If you want to change the database storage location on your system, edit the value of `DB_CERTS_LOCATION` in the .env file
   #*     ${DB_CERTS_LOCATION}:/var/lib/postgresql/data
   #* ${DB_CERTS_LOCATION}:/usr/local/postgresql/data
   # ${DB_CERTS_LOCATION}:/var/lib/postgresql/certs
-  volumes: &postgresdb_tls-volumes |-
-    ${DB_CERTS_LOCATION}:/var/lib/postgresql/certs
+  volumes: &postgresdb_tls-volumes
+    - ${DB_DATA_LOCATION}:/var/lib/postgresql/data
+    - ${DB_CERTS_LOCATION}/server/${DB_TLS_CERT_FILE}:/var/lib/postgresql/data
+    - ${DB_CERTS_LOCATION}/server/${DB_TLS_KEY_FILE}:/var/lib/postgresql/data
+    - ${DB_CERTS_LOCATION}/${DB_TLS_CA_FILE}:/var/lib/postgresql/data
 
   environment: &postgresdb_tls-env
     <<: [*postgresdb_pw-env, *immich_tls-env]
@@ -292,7 +295,7 @@ x-redis-tls: &x-redis_tls
   #     ${REDIS_CERTS_LOCATION}:/usr/local/etc/redis
   # ./config/redis.conf:/usr/local/etc/redis/redis.conf
   volumes: &redis_tls-volumes
-    - ./config/redis.conf:/usr/local/etc/redis/redis.conf
+    - ./config/redis.conf:/usr/local/etc/redis
     - ${REDIS_CERTS_LOCATION}/server:/usr/local/etc/redis/server
 
 #? End of all service configurations
@@ -388,9 +391,7 @@ services:
     environment: *postgresdb_tls-env
     expose: *common-postgresdb-expose
     # ports: *common-postgresdb-ports
-    volumes:
-      - *common-postgresdb-volumes
-      - *postgresdb_tls-volumes
+    volumes: *postgresdb_tls-volumes
     networks:
       immich_backend:
         aliases: #? must contain `$DB_HOSTNAME`, default is `database`
