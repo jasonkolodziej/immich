@@ -132,7 +132,7 @@ x-immich-postgres-db: &common-postgresdb
 
 x-postgresdb-pw: &x-postgresdb_pw
   environment: &postgresdb_pw-env
-    <<: *env-immich-common-db
+    <<: *common-postgresdb-env
     #* Passed as
     POSTGRES_USER: "${DB_USERNAME}" #? Database Username - Required for `backup` and `database` services
     POSTGRES_PASSWORD: "${DB_PASSWORD}" #? Database Password - Required for `backup` and `database` services
@@ -249,7 +249,7 @@ services:
     #   - path: ./secure/.env
 
     environment:
-      <<: [*env-common, *env-immich-common-db, *common-redis-env]
+      <<: [*env-common, *common-postgresdb-env, *common-redis-env]
     volumes:
       - ${UPLOAD_LOCATION}/photos:/usr/src/app/upload
       - /etc/localtime:/etc/localtime:ro
