@@ -241,7 +241,7 @@ x-redis-tls: &x-redis_tls
 services:
   immich-server:
     extends:
-      file: ./secure/docker-compose.prod.yml
+      file: docker-compose.prod.yml
       service: immich-server
 
     # env_file:
@@ -264,7 +264,7 @@ services:
 
   immich-machine-learning:
     extends:
-      file: ./secure/docker-compose.prod.yml
+      file: docker-compose.prod.yml
       service: immich-machine-learning
 
     # env_file:
@@ -285,7 +285,7 @@ services:
 
   redis:
     extends:
-      file: ./secure/docker-compose.prod.yml
+      file: docker-compose.prod.yml
       service: redis
 
     # env_file:
@@ -303,7 +303,7 @@ services:
 
   database:
     extends:
-      file: ./secure/docker-compose.prod.yml
+      file: docker-compose.prod.yml
       service: database
 
     # env_file:
@@ -319,14 +319,14 @@ services:
         aliases: #? must contain `$DB_HOSTNAME`, default is `database`
           - database
 
-  # immich-prometheus:
-  #   extends:
-  #     file: docker-compose.prod.yml
-  #     service: immich-prometheus
-  # immich-grafana:
-  #   extends:
-  #     file: docker-compose.prod.yml
-  #     service: immich-grafana
+  immich-prometheus:
+    extends:
+      file: docker-compose.prod.yml
+      service: immich-prometheus
+  immich-grafana:
+    extends:
+      file: docker-compose.prod.yml
+      service: immich-grafana
 
 networks:
   immich_frontend:
@@ -338,3 +338,5 @@ networks:
 
 volumes:
   model-cache:
+  prometheus-data:
+  grafana-data:
