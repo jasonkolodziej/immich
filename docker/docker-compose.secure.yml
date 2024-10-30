@@ -187,6 +187,8 @@ x-immich-redis: &common-redis
     REDIS_DBINDEX: '${REDIS_DBINDEX:-0}' #? Redis Database
   expose: &common-redis-expose
     - 6379
+  ports: &common-redis-ports
+    - 6379:6379
   healthcheck: &common-redis-healthcheck
     test: redis-cli ping || exit 1
 #* ## Redis Configuration with Password
@@ -203,16 +205,27 @@ x-redis-pw: &x-redis_pw
   secrets: &redis_pw-secrets
     - redis-password
 #* ## Redis Configuration with TLS
+#? Reference: https://spin.atomicobject.com/configuring-redis-tls/
+#? Reference: https://tienbm90.medium.com/running-redis-tls-with-docker-compose-b89811fb01d3
 x-redis-tls: &x-redis_tls
   <<: *common-redis
   #? Using mTLS with redis
   #* command: redis-server --tls-port 6379 --tls-cert-file /data/redis.crt --tls-key-file /data/redis.key --tls-ca-cert-file /data/redis.crt
+  #* command:
+  #*  chmod 640 /data/${REDIS_SERVER_TLS_PATH}/${REDIS_TLS_CERT_FILE} && \
+  #*  chmod 640 /data/${REDIS_CLIENT_TLS_PATH}/${REDIS_TLS_CERT_FILE} && \
   command: &redis_tls-command |
+    chown -R redis:redis /usr/local/etc/redis/${REDIS_TLS_CA_FILE} && \
+    chown -R redis:redis /usr/local/etc/redis/${REDIS_SERVER_TLS_PATH} && \
+    chown -R redis:redis /usr/local/etc/redis/${REDIS_CLIENT_TLS_PATH} && \
     sh -c docker-entrypoint.sh  \
-    --tls-cert-file /data/${REDIS_SERVER_TLS_PATH}/${REDIS_TLS_CERT_FILE} \
-    --tls-key-file /data/${REDIS_SERVER_TLS_PATH}/${REDIS_TLS_KEY_FILE} \
-    --tls-ca-cert-file /data/${REDIS_TLS_CA_FILE} \
+    --tls-cert-file /usr/local/etc/redis/${REDIS_SERVER_TLS_PATH}/${REDIS_TLS_CERT_FILE} \
+    --tls-key-file /usr/local/etc/redis/${REDIS_SERVER_TLS_PATH}/${REDIS_TLS_KEY_FILE} \
+    --tls-ca-cert-file /usr/local/etc/redis/${REDIS_TLS_CA_FILE} \
     --tls-auth-clients ${REDIS_TLS_ENABLED}
+
+  healthcheck: &redis_tls-healthcheck
+    test: redis-cli ping -p 6379 --tls --cacert /usr/local/etc/redis/${REDIS_TLS_CA_FILE} --cert /usr/local/etc/redis/${REDIS_CLIENT_TLS_PATH}/${REDIS_TLS_CERT_FILE} --key /usr/local/etc/redis/${REDIS_CLIENT_TLS_PATH}/${REDIS_TLS_KEY_FILE} || exit 1
   #? For client connection use
   #* entrypoint: redis-cli
   #* command: -h redis-server -p 6379 --tls --cacert /certs/ca.crt --cert /certs/client.crt --key /certs/client.key
@@ -234,7 +247,8 @@ x-redis-tls: &x-redis_tls
   volumes: &redis_tls-volumes
     #! Do not edit the next line.
     #? If you want to change the certificate storage location on your system, edit the value of `REDIS_CERT_LOCATION` in the .env file
-    - ${REDIS_CERTS_LOCATION}:/data
+    # - ${REDIS_CERTS_LOCATION}:/data
+    - ${REDIS_CERTS_LOCATION}:/usr/local/etc/redis
 
 #? End of all service configurations
 
@@ -261,6 +275,13 @@ services:
       immich_frontend:
         aliases:
           - immich.docker
+
+    # external_links:
+    #   - redis
+    #   - database
+
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
 
   immich-machine-learning:
     extends:
@@ -297,6 +318,7 @@ services:
     volumes: *redis_tls-volumes
     command: *redis_tls-command
     environment: *redis_tls-env
+    healthcheck: *redis_tls-healthcheck
     networks:
       immich_backend:
         aliases: #? must contain `$REDIS_HOSTNAME`, default is `redis`
@@ -320,14 +342,14 @@ services:
         aliases: #? must contain `$DB_HOSTNAME`, default is `database`
           - immich_database
 
-  immich-prometheus:
-    extends:
-      file: docker-compose.prod.yml
-      service: immich-prometheus
-  immich-grafana:
-    extends:
-      file: docker-compose.prod.yml
-      service: immich-grafana
+  # immich-prometheus:
+  #   extends:
+  #     file: docker-compose.prod.yml
+  #     service: immich-prometheus
+  # immich-grafana:
+  #   extends:
+  #     file: docker-compose.prod.yml
+  #     service: immich-grafana
 
 networks:
   immich_frontend:
