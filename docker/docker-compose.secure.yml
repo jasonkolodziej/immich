@@ -235,11 +235,6 @@ x-redis-tls: &x-redis_tls # <<: *common-redis
   environment: &redis_tls-env
     <<: [*common-redis-env, *immich_tls-env]
     #? for certificates
-    # REDIS_TLS_CERT_FILE: /data/redis.crt
-    # REDIS_TLS_KEY_FILE: /data/redis.key
-    # REDIS_TLS_CA_FILE: /data/ca.crt
-    # REDIS_TLS_ENABLED: yes
-    # REDIS_TLS_PORT: "${REDIS_PORT:-6379}"
     # REDIS_CERTS_LOCATION: ${REDIS_CERTS_LOCATION:-"$IMMICH_CERTS_LOCATION/redis"}
     REDIS_TLS_CERT_FILE: /usr/local/etc/redis/${REDIS_SERVER_TLS_PATH}/${REDIS_TLS_CERT_FILE}
     REDIS_TLS_KEY_FILE: /usr/local/etc/redis/${REDIS_SERVER_TLS_PATH}/${REDIS_TLS_KEY_FILE}
@@ -250,7 +245,6 @@ x-redis-tls: &x-redis_tls # <<: *common-redis
   volumes: &redis_tls-volumes
     #! Do not edit the next line.
     #? If you want to change the certificate storage location on your system, edit the value of `REDIS_CERT_LOCATION` in the .env file
-    # - ${REDIS_CERTS_LOCATION}:/data
     - ${REDIS_CERTS_LOCATION}:/usr/local/etc/redis
 
 #? End of all service configurations
@@ -336,7 +330,7 @@ services:
 
     # env_file:
     #   - path: ./secure/.env
-
+    command: *postgresdb_tls-command
     environment: *postgresdb_tls-env
     expose: *common-postgresdb-expose
     volumes:
