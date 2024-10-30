@@ -1,33 +1,255 @@
-#
-# WARNING: Make sure to use the docker-compose.yml of the current release:
-#
-# https://github.com/immich-app/immich/releases/latest/download/docker-compose.yml
-#
-# The compose file on main may not be compatible with the latest release.
-#
-
 name: immich-secure
+
+#* ## Docker Compose
+x-immich-common: &immich-common
+  environment: &env-common #? The location where your uploaded files are stored
+    UPLOAD_LOCATION: "${UPLOAD_LOCATION:-./library}"
+    #? Host Path for Postgres database
+    DB_DATA_LOCATION: "${DB_DATA_LOCATION:-./postgres}"
+    DB_BACKUPS_LOCATION: "${DB_BACKUPS_LOCATION:-./db_dumps}"
+
+#* Settings and configurations that are common
+#* for immich-server and immich-machine-learning
+#* containers declaring the environment variables for
+#* General and Worker Configuration
+x-immich-general: &immich-general
+# image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}
+  environment: &env-general
+    <<: *env-common
+  #* ## General Configuration
+  #? Timezone for the server
+  #? https://en.wikipedia.org/wiki/List_of_tz_database_time_zones#List
+  #* TZ: "America/New_York"
+  # TZ: "${TZ:-'Etc/UTC'}"
+  IMMICH_ENV: "${IMMICH_ENV:-production}" #? Environment (production, development)
+  IMMICH_LOG_LEVEL: "${IMMICH_LOG_LEVEL:-log}" #? Log Level (verbose, debug, log, warn, error)
+  #? Media Location inside the container
+  #! You probably shouldn't set this
+  #! This path is where the Immich code looks for the files,
+  #! which is internal to the docker container.
+  #! Setting it to a path on your host will certainly break things,
+  #! you should use the `UPLOAD_LOCATION` variable instead.
+  IMMICH_MEDIA_LOCATION: "${IMMICH_MEDIA_LOCATION:-./upload}"
+  #? IMMICH_CONFIG_FILE	Path to config file for server
+  #? See https://immich.app/docs/install/configuration-file
+  IMMICH_CONFIG_FILE: "${IMMICH_CONFIG_FILE:-}"
+
+  NO_COLOR: "${NO_COLOR:-false}" #? Set to true to disable color-coded log output
+  #? Amount of cores available to the immich server
+  #* Default: auto-detected cpu core count
+  CPU_CORES: "${CPU_CORES:-$(nproc)}"
+  IMMICH_API_METRICS_PORT: "${IMMICH_API_METRICS_PORT:-8081}" #? Port for the OTEL metrics
+  IMMICH_MICROSERVICES_METRICS_PORT: "${IMMICH_MICROSERVICES_METRICS_PORT:-8082}" #? Port for the OTEL metrics
+  IMMICH_PROCESS_INVALID_IMAGES: "${IMMICH_PROCESS_INVALID_IMAGES:-true}" #? IMMICH_PROCESS_INVALID_IMAGES	When true, generate thumbnails for invalid images
+  IMMICH_TRUSTED_PROXIES: "${IMMICH_TRUSTED_PROXIES:-}" #? List of comma separated IPs set as trusted proxies
+  IMMICH_IGNORE_MOUNT_CHECK_ERRORS: "${IMMICH_IGNORE_MOUNT_CHECK_ERRORS:-false}" #? Please review https://immich.app/docs/administration/system-integrity
+
+x-immich-tls: &x-immich-tls
+  #? Certificates location
+  #* Example dir tree:
+  #* certs <-- IMMICH_CERTS_LOCATION
+  #*  |- redis <-- REDIS_CERTS_LOCATION
+  #*     |- ca.crt <-- REDIS_TLS_CA_FILE
+  #*     \ server <--* REDIS_SERVER_TLS_PATH - dir automatically will be prepended to REDIS_CERTS_LOCATION for the `redis` container image
+  #*       |- redis.key <-- REDIS_TLS_KEY_FILE
+  #*       |- redis.cert <-- REDIS_TLS_CERT_FILE
+  #*     \ client <--* REDIS_CLIENT_TLS_PATH - dir automatically will be prepended to REDIS_CERTS_LOCATION for the `redis` container image
+  #*       |- redis.key <-- REDIS_TLS_KEY_FILE
+  #*       |- redis.cert <-- REDIS_TLS_CERT_FILE
+  environment: &env-immich-tls
+    IMMICH_CERTS_LOCATION: ./certs
+    #? Host location of the Redis Certs (This should include both dirs: server, client) to be mounted into the container
+    REDIS_CERTS_LOCATION: ${IMMICH_CERTS_LOCATION}/redis
+    #? Directory, under mounted REDIS_CERTS_LOCATION, to Server's Key and Certificate File
+    REDIS_SERVER_TLS_PATH: server
+    #? Directory, under mounted REDIS_CERTS_LOCATION, to Client's Key and Certificate File
+    REDIS_CLIENT_TLS_PATH: client
+    #? Redis Server/Client Key Filename
+    REDIS_TLS_KEY_FILE: redis.key
+    #? Redis Server/CLient Certificate Filename
+    REDIS_TLS_CERT_FILE: redis.crt
+    #? Redis CA certificate File path name
+    REDIS_TLS_CA_FILE: ca.crt
+    #? DB_CERTS_LOCATION - Host location of the Postgres Certs / Keys (This should include both dirs: server, client)
+    DB_CERTS_LOCATION: ${IMMICH_CERTS_LOCATION}/postgres
+    #? Directory, under mounted DB_CERTS_LOCATION, to Server's Key and Certificate File
+    DB_SERVER_TLS_PATH: server
+    #? Directory, under mounted DB_CERTS_LOCATION, to Client's Key and Certificate File
+    DB_CLIENT_TLS_PATH: client
+    #? Postgres Server/Client certificate filename
+    DB_TLS_CERT_FILE: postgres.crt
+    #? Postgres Server/Client key filename
+    DB_TLS_KEY_FILE: postgres.key
+    #? Postgres Certificate Authority path & filename
+    DB_TLS_CA_FILE: ca.crt
+
+#* ## Database Configuration
+#*    All `DB_` variables must be provided to all Immich workers, including api and microservices.
+#*    `DB_URL` must be in the format `postgresql://immichdbusername:immichdbpassword@postgreshost:postgresport/immichdatabasename`.
+#*    You can require SSL by adding `?sslmode=require` to the end of the `DB_URL` string,
+#*    or require SSL and skip certificate verification by adding `?sslmode=require&sslmode=no-verify`.
+#! When `DB_URL` is defined, the `DB_HOSTNAME`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD` and `DB_DATABASE_NAME` database variables are ignored.
+x-immich-postgres-db: &immich-common-db
+  #* image: docker.io/tensorchord/pgvecto-rs:pg14-v0.2.0@sha256:90724186f0a3517cf6914295b5ab410db9ce23190a2d9d0b9dd6463e3fa298f0
+  image: &image-immich-common-db
+    tensorchord/pgvecto-rs:pg16-v0.2.0
+  environment: &env-immich-common-db
+    DB_USERNAME: "${DB_USERNAME:-postgres}" #? Database Username
+    DB_PASSWORD: "${DB_PASSWORD:-postgres}" #? Database Password
+    DB_HOSTNAME: "${DB_HOSTNAME:-database}" #? Database Hostname
+    DB_PORT: 5432 #? DB Port
+    DB_DATABASE_NAME: "${DB_DATABASE_NAME:-immich}" #? Database Name
+    # DB_URL: "${DB_URL:-postgresql://${DB_USERNAME}:${DB_PASSWORD}@${DB_HOSTNAME}:${DB_PORT}/${DB_DATABASE_NAME}?sslmode=require}" #? Database URL
+    #? DB Vector Extension
+    #! One of [pgvecto.rs, pgvector]
+    #! This setting cannot be changed after the server has successfully started up.
+    DB_VECTOR_EXTENSION: "${DB_VECTOR_EXTENSION:-pgvecto.rs}"
+    #* DB_VECTOR_EXTENSION: "${DB_VECTOR_EXTENSION:-pgvector}"
+    #? DB Skip Migration
+    #?  Whether to skip running migrations on startup (one of [true, false])
+    DB_SKIP_MIGRATION: "${DB_SKIP_MIGRATION:-false}"
+    POSTGRES_INITDB_ARGS: "${POSTGRES_INITDB_ARGS:-'--data-checksums'}"
+  secrets: &secrets-immich-common-db
+    - postgres-password
+    - db-password
+  restart: &restart-immich-common-db
+    always
+  healthcheck: &healthcheck-immich-common-db
+      test: |
+        pg_isready --dbname='${DB_DATABASE_NAME}' --username='${DB_USERNAME}' || exit 1; \
+        Chksum="$$(psql --dbname='${DB_DATABASE_NAME}' --username='${DB_USERNAME}' --tuples-only --no-align --command='SELECT COALESCE(SUM(checksum_failures), 0) FROM pg_stat_database')"; \
+        echo "checksum failure count is $$Chksum"; [ "$$Chksum" = '0' ] || exit 1
+      interval: 5m
+      # start_interval: 30s
+      start_period: 5m
+  volumes: &volumes-immich-common-db
+      #! Do not edit the next line.
+      #? If you want to change the database storage location on your system, edit the value of `DB_DATA_LOCATION` in the .env file
+      - ${DB_DATA_LOCATION}:/var/lib/postgresql/data
+  expose: &expose-immich-common-db
+      - 5432
+
+x-postgresdb-pw: &x-postgresdb-pw
+  environment: &env-postgresdb-pw
+    <<: *env-immich-common-db
+    #* Passed as
+    POSTGRES_USER: "${DB_USERNAME}" #? Database Username - Required for `backup` and `database` services
+    POSTGRES_PASSWORD: "${DB_PASSWORD}" #? Database Password - Required for `backup` and `database` services
+    POSTGRES_DB: "${DB_DATABASE_NAME}" #? Database Name - Required for `backup` and `database` services
+    POSTGRES_HOST: "${DB_HOSTNAME}" #? Database Hostname - Required for `backup` and `database` services
+
+x-postgresdb-tls: &x-postgresdb-tls
+  command: &command-postgresdb-tls |
+    chown postgres /var/lib/postgresql/${DB_TLS_CA_FILE} && chmod 640 /var/lib/postgresql/${DB_TLS_CA_FILE} && \
+    chown postgres /var/lib/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_CERT_FILE} && chmod 640 /var/lib/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_CERT_FILE} && \
+    chown postgres /var/lib/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_KEY_FILE} && chmod 640 /var/lib/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_KEY_FILE} && \
+    sh -c docker-entrypoint.sh \
+    -c shared_preload_libraries=vectors.so
+    -c 'search_path="$$user", public, vectors'
+    -c logging_collector=on
+    -c max_wal_size=2GB
+    -c shared_buffers=512MB
+    -c wal_compression=on
+    -c ssl=on
+    -c ssl_cert_file=/var/lib/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_CERT_FILE}
+    -c ssl_key_file=/var/lib/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_KEY_FILE}
+    -c ssl_ca_file=/var/lib/postgresql/${DB_TLS_CA_FILE}
+  volumes: &volumes-postgresdb-tls
+    - <<: *volumes-immich-common-db
+      #! Do not edit the next line.
+      #? If you want to change the certificate storage location on your system, edit the value of `DB_CERT_LOCATION` in the .env file
+    - ${DB_CERTS_LOCATION}:/var/lib/postgresql
+  environment: &env-postgresdb-tls
+    <<: [*env-immich-common-db, *env-immich-tls]
+    # #? for certificates
+    # DB_CERTS_LOCATION: ${DB_CERTS_LOCATION:-"$IMMICH_CERTS_LOCATION/postgres"}
+    # DB_TLS_CERT_FILE: $DB_CERTS_LOCATION/server/${DB_TLS_CERT_FILENAME}
+    # DB_TLS_KEY_FILE: $DB_CERTS_LOCATION/server/${DB_TLS_KEY_FILENAME}
+    # DB_TLS_CA_FILE: $DB_CERTS_LOCATION/${DB_TLS_CA_FILENAME}
+
+#* ## Redis Configuration
+#*    All `REDIS_` variables must be provided to all Immich workers, including api and microservices.
+#*    `REDIS_URL` must start with `ioredis://` and then include a base64 encoded JSON string for the configuration. More info can be found in the upstream ioredis documentation.
+#*    When `REDIS_URL` or `REDIS_SOCKET` are defined, the `REDIS_HOSTNAME`, `REDIS_PORT`, `REDIS_USERNAME`, `REDIS_PASSWORD`, and `REDIS_DBINDEX` variables are ignored.
+x-immich-redis: &common-redis
+   #? original redis image
+  # image: docker.io/redis:6.2-alpine@sha256:2d1463258f2764328496376f5d965f20c6a67f66ea2b06dc42af351f75248792
+  image: &common-image-redis
+    redis:alpine
+  restart: &common-restart-redis
+    always
+  environment: &common-redis-env
+    REDIS_URL: "${REDIS_URL:-}" #? Redis URL
+    REDIS_USERNAME: "${REDIS_USERNAME:-}" #? Redis Username
+    REDIS_PASSWORD: "${REDIS_PASSWORD:-}" #? Redis Password
+    REDIS_HOSTNAME: "${REDIS_HOSTNAME:-redis}" #? Redis Hostname
+    REDIS_SOCKET: "${REDIS_SOCKET:-}" #? Redis Socket
+    REDIS_PORT: "${REDIS_PORT:-6379}" #? Redis Port
+    REDIS_DBINDEX: "${REDIS_DBINDEX:-0}" #? Redis Database
+  expose: &common-expose-redis
+      - 6379
+  healthcheck: &common-healthcheck-redis
+    test: redis-cli ping || exit 1
+#* ## Redis Configuration with Password
+#*   Main container configuration for Redis with password authentication used for `immich-server` and `immich-machine-learning` services
+x-redis-pw: &x-redis-pw
+  <<: *common-redis
+  #? Using a password with Redis
+  #*   command: sh -c docker-entrypoint.sh --requirepass $(cat $REDIS_PASSWORD_FILE)
+  command: &command-redis-pw
+    sh -c "[ "$$REDIS_PASSWORD_FILE" ] && ( cat "$$REDIS_PASSWORD_FILE" | xargs -0 redis-server --requirepass ) || redis-server"
+  environment: &env-redis-pw
+    <<: *common-redis-env
+    REDIS_PASSWORD_FILE: /run/secrets/redis-password #? Redis Password File - Required for `redis` service to set password
+  secrets: &secrets-redis-pw
+    - redis-password
+#* ## Redis Configuration with TLS
+x-redis-tls: &x-redis-tls
+  <<: *common-redis
+  #? Using mTLS with redis
+  #* command: redis-server --tls-port 6379 --tls-cert-file /data/redis.crt --tls-key-file /data/redis.key --tls-ca-cert-file /data/redis.crt
+  command: &command-redis-tls |
+      sh -c docker-entrypoint.sh  \
+      --tls-cert-file /data/${REDIS_SERVER_TLS_PATH}/${REDIS_TLS_CERT_FILE} \
+      --tls-key-file /data/${REDIS_SERVER_TLS_PATH}/${REDIS_TLS_KEY_FILE} \
+      --tls-ca-cert-file /data/${REDIS_TLS_CA_FILE} \
+      --tls-auth-clients ${REDIS_TLS_ENABLED}
+  #? For client connection use
+  #* entrypoint: redis-cli
+  #* command: -h redis-server -p 6379 --tls --cacert /certs/ca.crt --cert /certs/client.crt --key /certs/client.key
+  environment: &env-redis-tls
+    <<: [*common-redis-env, *env-immich-tls]
+    #? for certificates
+    # REDIS_TLS_CERT_FILE: /data/redis.crt
+    # REDIS_TLS_KEY_FILE: /data/redis.key
+    # REDIS_TLS_CA_FILE: /data/ca.crt
+    # REDIS_TLS_ENABLED: yes
+    # REDIS_TLS_PORT: "${REDIS_PORT:-6379}"
+    # REDIS_CERTS_LOCATION: ${REDIS_CERTS_LOCATION:-"$IMMICH_CERTS_LOCATION/redis"}
+    # REDIS_TLS_CERT_FILE: ${REDIS_CERTS_LOCATION}/server/${REDIS_TLS_CERT_FILENAME}
+    # REDIS_TLS_KEY_FILE: ${REDIS_CERTS_LOCATION}/server/${REDIS_TLS_KEY_FILENAME}
+    # REDIS_TLS_CA_FILE: ${REDIS_CERTS_LOCATION}/${REDIS_TLS_CA_FILENAME}
+    REDIS_TLS_ENABLED: yes # ${REDIS_TLS_ENABLED:-yes}
+    REDIS_TLS_PORT: '${REDIS_PORT:-6379}'
+    #? for certificates
+  volumes: &volumes-redis-tls
+      #! Do not edit the next line.
+      #? If you want to change the certificate storage location on your system, edit the value of `REDIS_CERT_LOCATION` in the .env file
+    - ${REDIS_CERTS_LOCATION}:/data
+
+#? End of all service configurations
 
 services:
   immich-server:
-    container_name: immich_server
-    image: immich-server:latest
-    # extends:
-    #   file: hwaccel.transcoding.yml
-    #   service: cpu # set to one of [nvenc, quicksync, rkmpp, vaapi, vaapi-wsl] for accelerated transcoding
-    env_file:
-      - .env
-    ports:
-      - 2283:2283
-    depends_on:
-      - redis
-      - database
-    restart: always
-    healthcheck:
-      disable: false
-    build:
-      context: ../
-      dockerfile: server/Dockerfile
+    extends:
+      file: docker-compose.prod.yml
+      service: immich-server
+
+    # env_file:
+    #   - path: ./secure/.env
+
+    environment:
+      <<: [*env-common, *env-db, *env-redis]
     volumes:
       - ${UPLOAD_LOCATION}/photos:/usr/src/app/upload
       - /etc/localtime:/etc/localtime:ro
@@ -42,21 +264,13 @@ services:
           - immich.docker
 
   immich-machine-learning:
-    container_name: immich_machine_learning
-    image: immich-machine-learning:latest
-    # extends:
-    #   file: hwaccel.ml.yml
-    #   service: cpu # set to one of [armnn, cuda, openvino, openvino-wsl] for accelerated inference
-    env_file:
-      - .env
-    restart: always
-    healthcheck:
-      disable: false
-    build:
-      context: ../machine-learning
-      dockerfile: Dockerfile
-      args:
-        - DEVICE=cpu # set to one of [armnn, cuda, openvino, openvino-wsl] for accelerated inference
+    extends:
+      file: docker-compose.prod.yml
+      service: immich-machine-learning
+
+    # env_file:
+    #   - path: ./secure/.env
+
     #? ssl
     expose:
       - 3003
@@ -69,116 +283,49 @@ services:
         aliases:
           - immich_machine_learning
           - immich_ml
-    volumes:
-      - model-cache:/cache
 
   redis:
-    container_name: immich_redis
-    image: docker.io/redis:6.2-alpine@sha256:2ba50e1ac3a0ea17b736ce9db2b0a9f6f8b85d4c27d5f5accc6a416d8f42c6d5
-    healthcheck:
-      test: redis-cli ping || exit 1
-    restart: always
-    env_file:
-      - .env
+    extends:
+      file: docker-compose.prod.yml
+      service: redis
+
+    # env_file:
+    #   - path: ./secure/.env
+
     #? For SSL
-    command: |
-      sh -c docker-entrypoint.sh  \
-      --tls-cert-file /data/server/${REDIS_TLS_CERT_FILENAME} \
-      --tls-key-file /data/server/${REDIS_TLS_KEY_FILENAME} \
-      --tls-ca-cert-file /data/${REDIS_TLS_CA_FILENAME} \
-      --tls-auth-clients ${REDIS_TLS_ENABLED}
-    expose:
-      - 6379
+    expose: *common-expose-redis
+    volumes: *volumes-redis-tls
+    command: *command-redis-tls
+    environment: *env-redis-tls
     networks:
       immich_backend:
         aliases: #? must contain `$REDIS_HOSTNAME`, default is `redis`
           - redis
-    volumes:
-      # Do not edit the next line. If you want to change the redis storage location on your system, edit the value of REDIS_CERTS_LOCATION in the .env file
-      - ${REDIS_CERTS_LOCATION}:/data
-    environment:
-      REDIS_CERTS_LOCATION: ${REDIS_CERTS_LOCATION:-"$IMMICH_CERTS_LOCATION/redis"}
-      REDIS_TLS_CERT_FILE: ${REDIS_CERTS_LOCATION}/server/${REDIS_TLS_CERT_FILENAME}
-      REDIS_TLS_KEY_FILE: ${REDIS_CERTS_LOCATION}/server/${REDIS_TLS_KEY_FILENAME}
-      REDIS_TLS_CA_FILE: ${REDIS_CERTS_LOCATION}/${REDIS_TLS_CA_FILENAME}
-      REDIS_TLS_ENABLED: yes # ${REDIS_TLS_ENABLED:-yes}
-      REDIS_TLS_PORT: '${REDIS_PORT:-6379}'
 
   database:
-    container_name: immich_postgres
-    image: docker.io/tensorchord/pgvecto-rs:pg14-v0.2.0@sha256:90724186f0a3517cf6914295b5ab410db9ce23190a2d9d0b9dd6463e3fa298f0
-    env_file:
-      - .env
-    restart: always
-    healthcheck:
-      test: pg_isready --dbname='${DB_DATABASE_NAME}' --username='${DB_USERNAME}' || exit 1; Chksum="$$(psql --dbname='${DB_DATABASE_NAME}' --username='${DB_USERNAME}' --tuples-only --no-align --command='SELECT COALESCE(SUM(checksum_failures), 0) FROM pg_stat_database')"; echo "checksum failure count is $$Chksum"; [ "$$Chksum" = '0' ] || exit 1
-      interval: 5m
-      start_interval: 30s
-      start_period: 5m
-    environment:
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_USER: ${DB_USERNAME}
-      POSTGRES_DB: ${DB_DATABASE_NAME}
-      #? SSL
-      DB_CERTS_LOCATION: ${DB_CERTS_LOCATION:-"$IMMICH_CERTS_LOCATION/postgres"}
-      DB_TLS_CERT_FILE: $DB_CERTS_LOCATION/server/${DB_TLS_CERT_FILENAME}
-      DB_TLS_KEY_FILE: $DB_CERTS_LOCATION/server/${DB_TLS_KEY_FILENAME}
-      DB_TLS_CA_FILE: $DB_CERTS_LOCATION/${DB_TLS_CA_FILENAME}
-      POSTGRES_INITDB_ARGS: '--data-checksums'
-    volumes:
-      - ${DB_CERTS_LOCATION}:/var/lib/postgresql
-      # Do not edit the next line. If you want to change the database storage location on your system, edit the value of DB_DATA_LOCATION in the .env file
-      - ${DB_DATA_LOCATION}:/var/lib/postgresql/data
+    extends:
+      file: docker-compose.prod.yml
+      service: database
 
-    expose:
-      - 5432
+    # env_file:
+    #   - path: ./secure/.env
+
+    environment: *env-postgresdb-tls
+    expose: *expose-immich-common-db
+    volumes: *volumes-postgresdb-tls
     networks:
       immich_backend:
         aliases: #? must contain `$DB_HOSTNAME`, default is `database`
           - database
-    command: |
-      chown postgres /var/lib/postgresql/${DB_TLS_CA_FILENAME} && chmod 640 /var/lib/postgresql/${DB_TLS_CA_FILENAME} && \
-      chown postgres /var/lib/postgresql/server/${DB_TLS_CERT_FILENAME} && chmod 640 /var/lib/postgresql/server/${DB_TLS_CERT_FILENAME} && \
-      chown postgres /var/lib/postgresql/server/${DB_TLS_KEY_FILENAME} && chmod 640 /var/lib/postgresql/server/${DB_TLS_KEY_FILENAME} && \
-      sh -c docker-entrypoint.sh \
-      -c shared_preload_libraries=vectors.so
-      -c 'search_path="$$user", public, vectors'
-      -c logging_collector=on
-      -c max_wal_size=2GB
-      -c shared_buffers=512MB
-      -c wal_compression=on
-      -c ssl=on
-      -c ssl_cert_file=/var/lib/postgresql/server/${DB_TLS_CERT_FILENAME}
-      -c ssl_key_file=/var/lib/postgresql/server/${DB_TLS_KEY_FILENAME}
-      -c ssl_ca_file=/var/lib/postgresql/${DB_TLS_CA_FILENAME}
-    # command:
-    #   [
-    #     'postgres',
-    #     '-c',
-    #     'shared_preload_libraries=vectors.so',
-    #     '-c',
-    #     'search_path="$$user", public, vectors',
-    #     '-c',
-    #     'logging_collector=on',
-    #     '-c',
-    #     'max_wal_size=2GB',
-    #     '-c',
-    #     'shared_buffers=512MB',
-    #     '-c',
-    #     'wal_compression=on',
-    #     #? SSL
-    #     '-c',
-    #     'ssl=on',
-    #     '-c',
-    #     'ssl_cert_file=/var/lib/postgresql/${DB_TLS_CERT_FILE}',
-    #     '-c',
-    #     'ssl_key_file=$/var/lib/postgresql/{DB_TLS_KEY_FILE}',
-    #     '-c',
-    #     'ssl_ca_file=/var/lib/postgresql/${DB_TLS_CA_FILE}',
-    #   ]
 
-volumes:
-  model-cache:
+  immich-prometheus:
+    extends:
+      file: docker-compose.prod.yml
+      service: immich-prometheus
+  immich-grafana:
+    extends:
+      file: docker-compose.prod.yml
+      service: immich-grafana
 
 networks:
   immich_frontend:
