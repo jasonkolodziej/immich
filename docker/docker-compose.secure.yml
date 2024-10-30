@@ -161,7 +161,7 @@ x-postgresdb-tls: &x-postgresdb_tls
     ${DB_CERTS_LOCATION}:/var/lib/postgresql
 
   environment: &postgresdb_tls-env
-    <<: [*common-postgresdb-env, *immich_tls-env]
+    <<: [*postgresdb_pw-env, *immich_tls-env]
     # #? for certificates
     # DB_CERTS_LOCATION: ${DB_CERTS_LOCATION:-"$IMMICH_CERTS_LOCATION/postgres"}
     # DB_TLS_CERT_FILE: $DB_CERTS_LOCATION/server/${DB_TLS_CERT_FILENAME}
@@ -292,6 +292,7 @@ services:
     #   - path: ./secure/.env
 
     #? For SSL
+    image: *common-redis-image
     expose: *common-redis-expose
     volumes: *redis_tls-volumes
     command: *redis_tls-command
@@ -317,7 +318,7 @@ services:
     networks:
       immich_backend:
         aliases: #? must contain `$DB_HOSTNAME`, default is `database`
-          - database
+          - immich_database
 
   immich-prometheus:
     extends:
@@ -330,6 +331,7 @@ services:
 
 networks:
   immich_frontend:
+    {}
     # external: true
     # name: cloudflare-tunnel
   immich_backend:

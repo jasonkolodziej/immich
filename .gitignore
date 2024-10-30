@@ -1,6 +1,7 @@
 **/node_modules/**
 **/*.key
 **/*.crt
+
 .DS_Store
 .vscode/*
 !.vscode/launch.json
@@ -8,6 +9,7 @@
 
 docker/upload
 docker/library
+docker/postgres
 uploads
 coverage
 

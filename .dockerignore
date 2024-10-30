@@ -5,9 +5,7 @@
 design/
 docker/
 !docker/scripts
-!docker/secure/certs
-!docker/secure/*.yml
-!docker/secure/.env
+
 docs/
 e2e/
 fastlane/
