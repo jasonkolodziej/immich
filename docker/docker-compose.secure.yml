@@ -142,7 +142,7 @@ x-immich-postgres-db:
 
 x-postgresdb-pw: &x-postgresdb_pw
   command: &postgresdb_pw-command
-    <<: *common-postgresdb-command
+  <: *common-postgresdb-command
   environment: &postgresdb_pw-env
     <<: *common-postgresdb-env
     #* Passed as
@@ -157,36 +157,53 @@ x-postgresdb-tls: &x-postgresdb_tls
   # chmod 640 /var/lib/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_CERT_FILE} && \
   # chown postgres /var/lib/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_KEY_FILE} && \
   # chmod 640 /var/lib/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_KEY_FILE} && \
-  #   -c ssl_cert_file=/var/lib/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_CERT_FILE}
-  # -c ssl_key_file=/var/lib/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_KEY_FILE}
-  # -c ssl_ca_file=/var/lib/postgresql/${DB_TLS_CA_FILE}
-  command: &postgresdb_tls-command |
-    chown postgres /var/lib/postgresql/${DB_TLS_CA_FILE} && \
-    chmod 640 /var/lib/postgresql/${DB_TLS_CA_FILE} && \
-    chown postgres -Rf /var/lib/postgresql/${DB_SERVER_TLS_PATH} && \
-    chmod 640 /var/lib/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_CERT_FILE} && \
-    chmod 640 /var/lib/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_KEY_FILE} && \
-    sh -c docker-entrypoint.sh \
-    -c shared_preload_libraries=vectors.so
+  # -c ssl_cert_file=/var/lib/postgresql/certs/${DB_SERVER_TLS_PATH}/${DB_TLS_CERT_FILE} \
+  # -c ssl_key_file=/var/lib/postgresql/certs/${DB_SERVER_TLS_PATH}/${DB_TLS_KEY_FILE} \
+  # -c ssl_ca_file=/var/lib/postgresql/certs/${DB_TLS_CA_FILE}
+  #   chown postgres $$PGSSLROOTCERT && \
+  # chmod 640 $$PGSSLROOTCERT && \
+  # chown postgres $$PGSSLCERT && \
+  # chmod 640 $$PGSSLCERT && \
+  # chown postgres $$PGSSLKEY && \
+  # chmod 640 $$PGSSLKEY && \
+  #   sh -c "chown postgres /usr/local/postgresql/${DB_TLS_CA_FILE} && \
+  # chmod 640 /usr/local/postgresql/${DB_TLS_CA_FILE} && \
+  # chown postgres /usr/local/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_CERT_FILE} && \
+  # chmod 640 /usr/local/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_CERT_FILE} && \
+  # chown postgres /usr/local/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_KEY_FILE} && \
+  # chmod 640 /usr/local/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_KEY_FILE}" \
+  command: &postgresdb_tls-command >-
+    chown postgres /var/lib/postgresql/certs/${DB_TLS_CA_FILE} &&
+    chmod 640 /var/lib/postgresql/certs/${DB_TLS_CA_FILE} &&
+    chown postgres /var/lib/postgresql/certs/${DB_SERVER_TLS_PATH}/${DB_TLS_CERT_FILE} &&
+    chmod 640 /var/lib/postgresql/certs/${DB_SERVER_TLS_PATH}/${DB_TLS_CERT_FILE} &&
+    chown postgres /var/lib/postgresql/certs/${DB_SERVER_TLS_PATH}/${DB_TLS_KEY_FILE} &&
+    chmod 640 /var/lib/postgresql/certs/${DB_SERVER_TLS_PATH}/${DB_TLS_KEY_FILE} &&
+    postgres -c shared_preload_libraries=vectors.so
     -c 'search_path="$$user", public, vectors'
     -c logging_collector=on
     -c max_wal_size=2GB
     -c shared_buffers=512MB
     -c wal_compression=on
     -c ssl=on
-    -c ssl_cert_file=/var/lib/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_CERT_FILE}
-    -c ssl_key_file=/var/lib/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_KEY_FILE}
-    -c ssl_ca_file=/var/lib/postgresql/${DB_TLS_CA_FILE}
+    -c ssl_cert_file=/var/lib/postgresql/certs/${DB_SERVER_TLS_PATH}/${DB_TLS_CERT_FILE}
+    -c ssl_key_file=/var/lib/postgresql/certs/${DB_SERVER_TLS_PATH}/${DB_TLS_KEY_FILE}
+    -c ssl_ca_file=/var/lib/postgresql/certs/${DB_TLS_CA_FILE}
 
   #! Do not edit the next line.
   #? If you want to change the database storage location on your system, edit the value of `DB_CERTS_LOCATION` in the .env file
   #*     ${DB_CERTS_LOCATION}:/var/lib/postgresql/data
   #* ${DB_CERTS_LOCATION}:/usr/local/postgresql/data
+  # ${DB_CERTS_LOCATION}:/var/lib/postgresql/certs
   volumes: &postgresdb_tls-volumes |-
-    ${DB_CERTS_LOCATION}:/var/lib/postgresql
+    ${DB_CERTS_LOCATION}:/var/lib/postgresql/certs
 
   environment: &postgresdb_tls-env
     <<: [*postgresdb_pw-env, *immich_tls-env]
+    # PGSSLMODE: 'perfer'
+    # PGSSLCERT: /usr/local/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_CERT_FILE}
+    # PGSSLKEY: /usr/local/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_KEY_FILE}
+    # PGSSLROOTCERT: /usr/local/postgresql/${DB_TLS_CA_FILE}
     # #? for certificates
     # DB_CERTS_LOCATION: ${DB_CERTS_LOCATION:-"$IMMICH_CERTS_LOCATION/postgres"}
     # DB_TLS_CERT_FILE: $DB_CERTS_LOCATION/server/${DB_TLS_CERT_FILENAME}
@@ -249,15 +266,16 @@ x-redis-tls: &x-redis_tls
   # --tls-key-file=/data/${REDIS_SERVER_TLS_PATH}/${REDIS_TLS_KEY_FILE} \
   # --tls-ca-cert-file=/data/${REDIS_TLS_CA_FILE} \
   # --tls-auth-clients=${REDIS_TLS_ENABLED}
+  #? For client connection use
+  #* entrypoint: redis-cli
+  #* command: -h redis-server -p 6379 --tls --cacert /certs/ca.crt --cert /certs/client.crt --key /certs/client.key
   command: &redis_tls-command |
-    redis-server
+    redis-server /usr/local/etc/redis/redis.conf
 
   healthcheck: &redis_tls-healthcheck
     <<: *common-redis-healthcheck
     # test: redis-cli ping -p 6379 --tls --cacert /data/${REDIS_TLS_CA_FILE} --cert /data/${REDIS_CLIENT_TLS_PATH}/${REDIS_TLS_CERT_FILE} --key /data/${REDIS_CLIENT_TLS_PATH}/${REDIS_TLS_KEY_FILE} || exit 1
-  #? For client connection use
-  #* entrypoint: redis-cli
-  #* command: -h redis-server -p 6379 --tls --cacert /certs/ca.crt --cert /certs/client.crt --key /certs/client.key
+
   environment: &redis_tls-env
     <<: [*common-redis-env, *immich_tls-env]
     #? for certificates
@@ -268,10 +286,14 @@ x-redis-tls: &x-redis_tls
     REDIS_TLS_ENABLED: yes # ${REDIS_TLS_ENABLED:-yes}
     REDIS_TLS_PORT: '${REDIS_PORT:-6379}'
     #? for certificates
+  #! Do not edit the next line.
+  #? If you want to change the certificate storage location on your system, edit the value of `REDIS_CERT_LOCATION` in the .env file
+  #     'redis_data:/bitnami/redis/data'
+  #     ${REDIS_CERTS_LOCATION}:/usr/local/etc/redis
+  # ./config/redis.conf:/usr/local/etc/redis/redis.conf
   volumes: &redis_tls-volumes
-    #! Do not edit the next line.
-    #? If you want to change the certificate storage location on your system, edit the value of `REDIS_CERT_LOCATION` in the .env file
-    - ${REDIS_CERTS_LOCATION}:/usr/local/etc/redis
+    - ./config/redis.conf:/usr/local/etc/redis/redis.conf
+    - ${REDIS_CERTS_LOCATION}/server:/usr/local/etc/redis/server
 
 #? End of all service configurations
 
@@ -297,9 +319,9 @@ services:
       immich_backend:
         aliases:
           - immich.docker
-      # immich_frontend:
-      #   aliases:
-      #     - immich.docker
+      immich_frontend:
+        aliases:
+          - immich.docker
 
     # external_links:
     #   - redis
@@ -320,10 +342,10 @@ services:
     expose:
       - 3003
     networks:
-      # immich_frontend:
-      #   aliases:
-      #     - immich_machine_learning
-      #     - immich_ml
+      immich_frontend:
+        aliases:
+          - immich_machine_learning
+          - immich_ml
       immich_backend:
         aliases:
           - immich_machine_learning
@@ -340,8 +362,8 @@ services:
     #? For SSL
     # image: *redis_tls-image
     image: *common-redis-image
-    # expose: *common-redis-expose
-    ports: *common-redis-ports
+    expose: *common-redis-expose
+    # ports: *common-redis-ports
     volumes: *redis_tls-volumes
     command: *redis_tls-command
     environment: *redis_tls-env
@@ -364,8 +386,8 @@ services:
     healthcheck: *common-postgresdb-healthcheck
     command: *postgresdb_tls-command
     environment: *postgresdb_tls-env
-    # expose: *common-postgresdb-expose
-    ports: *common-postgresdb-ports
+    expose: *common-postgresdb-expose
+    # ports: *common-postgresdb-ports
     volumes:
       - *common-postgresdb-volumes
       - *postgresdb_tls-volumes
@@ -384,15 +406,17 @@ services:
   #     service: immich-grafana
 
 networks:
-  # immich_frontend:
-  #   {}
-  # external: true
-  # name: cloudflare-tunnel
+  immich_frontend:
+    # external: true
+    # name: cloudflare-tunnel
   immich_backend:
-    # driver: bridge
+    driver: bridge
+    internal: true
     attachable: true
 
 volumes:
+  # redis_data:
+  #   driver: local
   model-cache:
   prometheus-data:
   grafana-data:

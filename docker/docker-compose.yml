@@ -119,6 +119,41 @@ x-postgresdb-pw: &x-postgresdb_pw
     POSTGRES_DB: '${DB_DATABASE_NAME}' #? Database Name - Required for `backup` and `database` services
     POSTGRES_HOST: '${DB_HOSTNAME}' #? Database Hostname - Required for `backup` and `database` services
 
+x-postgresdb-tls: &x-postgresdb_tls
+  command: &postgresdb_tls-command |
+    chown postgres /var/lib/postgresql/data/certs/${DB_TLS_CA_FILE} && \
+    chmod 640 /var/lib/postgresql/data/certs/${DB_TLS_CA_FILE} && \
+    chown postgres -Rf /var/lib/postgresql/data/certs/${DB_SERVER_TLS_PATH} && \
+    chmod 640 /var/lib/postgresql/data/certs/${DB_SERVER_TLS_PATH}/${DB_TLS_CERT_FILE} && \
+    chmod 640 /var/lib/postgresql/data/certs/${DB_SERVER_TLS_PATH}/${DB_TLS_KEY_FILE} && \
+    postgres \
+    -c shared_preload_libraries=vectors.so \
+    -c 'search_path="$$user", public, vectors' \
+    -c logging_collector=on \
+    -c max_wal_size=2GB \
+    -c shared_buffers=512MB \
+    -c wal_compression=on \
+    -c ssl=on \
+    -c ssl_cert_file=/var/lib/postgresql/data/certs/${DB_SERVER_TLS_PATH}/${DB_TLS_CERT_FILE} \
+    -c ssl_key_file=/var/lib/postgresql/data/certs/${DB_SERVER_TLS_PATH}/${DB_TLS_KEY_FILE} \
+    -c ssl_ca_file=/var/lib/postgresql/data/certs/${DB_TLS_CA_FILE}
+
+  #! Do not edit the next line.
+  #? If you want to change the database storage location on your system, edit the value of `DB_CERTS_LOCATION` in the .env file
+  #*     ${DB_CERTS_LOCATION}:/var/lib/postgresql/data
+  #* ${DB_CERTS_LOCATION}:/usr/local/postgresql/data
+  volumes: &postgresdb_tls-volumes |-
+    ${DB_CERTS_LOCATION}:/var/lib/postgresql/data/certs
+
+  environment: &postgresdb_tls-env
+    <<: [*postgresdb_pw-env, *immich_tls-env]
+    # #? for certificates
+    # DB_CERTS_LOCATION: ${DB_CERTS_LOCATION:-"$IMMICH_CERTS_LOCATION/postgres"}
+    # DB_TLS_CERT_FILE: $DB_CERTS_LOCATION/server/${DB_TLS_CERT_FILENAME}
+    # DB_TLS_KEY_FILE: $DB_CERTS_LOCATION/server/${DB_TLS_KEY_FILENAME}
+    # DB_TLS_CA_FILE: $DB_CERTS_LOCATION/${DB_TLS_CA_FILENAME}
+
+
 #* ## Redis Configuration
 #*    All `REDIS_` variables must be provided to all Immich workers, including api and microservices.
 #*    `REDIS_URL` must start with `ioredis://` and then include a base64 encoded JSON string for the configuration. More info can be found in the upstream ioredis documentation.
