@@ -152,43 +152,32 @@ x-postgresdb-pw: &x-postgresdb_pw
     POSTGRES_HOST: '${DB_HOSTNAME}' #? Database Hostname - Required for `backup` and `database` services
 
 x-postgresdb-tls: &x-postgresdb_tls
-  #     chown postgres /var/lib/postgresql/${DB_TLS_CA_FILE} && chmod 640 /var/lib/postgresql/${DB_TLS_CA_FILE} && \
-  # chown postgres /var/lib/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_CERT_FILE} && \
-  # chmod 640 /var/lib/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_CERT_FILE} && \
-  # chown postgres /var/lib/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_KEY_FILE} && \
-  # chmod 640 /var/lib/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_KEY_FILE} && \
-  # -c ssl_cert_file=/var/lib/postgresql/certs/${DB_SERVER_TLS_PATH}/${DB_TLS_CERT_FILE} \
-  # -c ssl_key_file=/var/lib/postgresql/certs/${DB_SERVER_TLS_PATH}/${DB_TLS_KEY_FILE} \
-  # -c ssl_ca_file=/var/lib/postgresql/certs/${DB_TLS_CA_FILE}
-  #   chown postgres $$PGSSLROOTCERT && \
-  # chmod 640 $$PGSSLROOTCERT && \
-  # chown postgres $$PGSSLCERT && \
-  # chmod 640 $$PGSSLCERT && \
-  # chown postgres $$PGSSLKEY && \
-  # chmod 640 $$PGSSLKEY && \
-  #   sh -c "chown postgres /usr/local/postgresql/${DB_TLS_CA_FILE} && \
-  # chmod 640 /usr/local/postgresql/${DB_TLS_CA_FILE} && \
-  # chown postgres /usr/local/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_CERT_FILE} && \
-  # chmod 640 /usr/local/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_CERT_FILE} && \
-  # chown postgres /usr/local/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_KEY_FILE} && \
-  # chmod 640 /usr/local/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_KEY_FILE}" \
-  command: &postgresdb_tls-command >-
-    chown postgres /var/lib/postgresql/data/${DB_TLS_CA_FILE} &&
-    chmod 640 /var/lib/postgresql/data/${DB_TLS_CA_FILE} &&
-    chown postgres /var/lib/postgresql/data/${DB_TLS_CERT_FILE} &&
-    chmod 640 /var/lib/postgresql/data/${DB_TLS_CERT_FILE} &&
-    chown postgres /var/lib/postgresql/data/${DB_TLS_KEY_FILE} &&
-    chmod 640 /var/lib/postgresql/data/${DB_TLS_KEY_FILE} &&
-    postgres -c shared_preload_libraries=vectors.so
-    -c 'search_path="$$user", public, vectors'
-    -c logging_collector=on
-    -c max_wal_size=2GB
-    -c shared_buffers=512MB
-    -c wal_compression=on
-    -c ssl=on
-    -c ssl_cert_file=/var/lib/postgresql/data/${DB_TLS_CERT_FILE}
-    -c ssl_key_file=/var/lib/postgresql/data/${DB_TLS_KEY_FILE}
-    -c ssl_ca_file=/var/lib/postgresql/data/${DB_TLS_CA_FILE}
+  image: &postgresdb_tls-image pgvectors-tls:latest
+  build: &postgresdb_tls-build
+    context: ../
+    dockerfile: docker/pg.Dockerfile
+    target: pgvector
+    no_cache: true
+    # args:
+    #   BASE_IMAGE: 'postgres:14-alpine'
+    #   POSTGRES_VERSION: '14'
+  # command: &postgresdb_tls-command >-
+  #   chown postgres /var/lib/postgresql/data/${DB_TLS_CA_FILE} &&
+  #   chmod 640 /var/lib/postgresql/data/${DB_TLS_CA_FILE} &&
+  #   chown postgres /var/lib/postgresql/data/${DB_TLS_CERT_FILE} &&
+  #   chmod 640 /var/lib/postgresql/data/${DB_TLS_CERT_FILE} &&
+  #   chown postgres /var/lib/postgresql/data/${DB_TLS_KEY_FILE} &&
+  #   chmod 640 /var/lib/postgresql/data/${DB_TLS_KEY_FILE} &&
+  #   postgres -c shared_preload_libraries=vectors.so
+  #   -c 'search_path="$$user", public, vectors'
+  #   -c logging_collector=on
+  #   -c max_wal_size=2GB
+  #   -c shared_buffers=512MB
+  #   -c wal_compression=on
+  #   -c ssl=on
+  #   -c ssl_cert_file=/var/lib/postgresql/data/${DB_TLS_CERT_FILE}
+  #   -c ssl_key_file=/var/lib/postgresql/data/${DB_TLS_KEY_FILE}
+  #   -c ssl_ca_file=/var/lib/postgresql/data/${DB_TLS_CA_FILE}
 
   #! Do not edit the next line.
   #? If you want to change the database storage location on your system, edit the value of `DB_CERTS_LOCATION` in the .env file
@@ -197,9 +186,9 @@ x-postgresdb-tls: &x-postgresdb_tls
   # ${DB_CERTS_LOCATION}:/var/lib/postgresql/certs
   volumes: &postgresdb_tls-volumes
     - ${DB_DATA_LOCATION}:/var/lib/postgresql/data
-    - ${DB_CERTS_LOCATION}/server/${DB_TLS_CERT_FILE}:/var/lib/postgresql/data
-    - ${DB_CERTS_LOCATION}/server/${DB_TLS_KEY_FILE}:/var/lib/postgresql/data
-    - ${DB_CERTS_LOCATION}/${DB_TLS_CA_FILE}:/var/lib/postgresql/data
+    # - ${DB_CERTS_LOCATION}/server/${DB_TLS_CERT_FILE}:/var/lib/postgresql/data
+    # - ${DB_CERTS_LOCATION}/server/${DB_TLS_KEY_FILE}:/var/lib/postgresql/data
+    # - ${DB_CERTS_LOCATION}/${DB_TLS_CA_FILE}:/var/lib/postgresql/data
 
   environment: &postgresdb_tls-env
     <<: [*postgresdb_pw-env, *immich_tls-env]
@@ -384,10 +373,10 @@ services:
     # env_file:
     #   - path: ./secure/.env
 
-    image: *common-postgresdb-image
+    image: *postgresdb_tls-image
+    build: *postgresdb_tls-build
     restart: *common-postgresdb-restart
     healthcheck: *common-postgresdb-healthcheck
-    command: *postgresdb_tls-command
     environment: *postgresdb_tls-env
     expose: *common-postgresdb-expose
     # ports: *common-postgresdb-ports

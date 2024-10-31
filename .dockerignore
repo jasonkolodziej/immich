@@ -5,6 +5,9 @@
 design/
 docker/
 !docker/scripts
+!docker/ssl/*
+!docker/config/*
+!docker/*.Dockerfile
 
 docs/
 e2e/
