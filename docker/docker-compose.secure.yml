@@ -262,7 +262,7 @@ x-redis-tls: &x-redis_tls
   #* entrypoint: redis-cli
   #* command: -h redis-server -p 6379 --tls --cacert /certs/ca.crt --cert /certs/client.crt --key /certs/client.key
   command: &redis_tls-command |
-    redis-server /usr/local/etc/redis/redis.conf
+    redis-server
 
   healthcheck: &redis_tls-healthcheck
     <<: *common-redis-healthcheck
