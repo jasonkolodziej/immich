@@ -364,19 +364,8 @@ services:
 
     image: *postgresdb_tls-image
     build: *postgresdb_tls-build
-    command: |
-      postgres \
-      -c shared_preload_libraries=vectors.so \
-      -c 'search_path="$$user", public, vectors' \
-      -c logging_collector=on \
-      -c max_wal_size=2GB \
-      -c shared_buffers=512MB \
-      -c wal_compression=on \
-      -c hba_file=/var/lib/postgresql/pg_hba.conf \
-      -c ssl=on \
-      -c ssl_cert_file=/var/lib/postgresql/data/postgres.crt \
-      -c ssl_key_file=/var/lib/postgresq/data/postgres.key \
-      -c ssl_ca_file=/var/lib/postgresql/data/ca.crt
+    command: postgres -c shared_preload_libraries=vectors.so -c 'search_path="$$user", public, vectors' -c logging_collector=on -c max_wal_size=2GB -c shared_buffers=512MB -c wal_compression=on -c hba_file='/var/lib/postgresql/pg_hba.conf' -c ssl=on -c ssl_cert_file='/var/lib/postgresql/data/postgres.crt' -c ssl_key_file='/var/lib/postgresq/data/postgres.key' -c ssl_ca_file='/var/lib/postgresql/data/ca.crt'
+    # command: id postgres
     restart: *common-postgresdb-restart
     healthcheck: *common-postgresdb-healthcheck
     environment: *postgresdb_tls-env
