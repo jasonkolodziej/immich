@@ -70,7 +70,7 @@ FROM tensorchord/pgvecto-rs:pg14-v0.2.0 AS pgvector
 #   '-c' 'wal_compression=on' \
 #   ]
 
-COPY --from=cert-inserter /var/lib/postgresql/data /var/lib/postgresql/data
+COPY --from=cert-inserter /var/lib/postgresql/data/ /var/lib/postgresql/data
 # COPY --from=cert-inserter /usr/local/bin/ssl-conf.sh /usr/local/bin/ssl-conf.sh
 
 #? Debian Related images
@@ -83,15 +83,5 @@ RUN chown 0:999 /var/lib/postgresql/data/ca.crt && chmod 640 /var/lib/postgresql
 # ENTRYPOINT ["docker-entrypoint.sh"]
 
 # #? add "-c", "ssl_crl_file=/var/lib/postgresql/myCA.crl" to the command below
-# CMD [ "/usr/local/bin/postgres" \
-#   "-c", "shared_preload_libraries=vectors.so", \
-#   "-c", 'search_path="$$user", public, vectors',\
-#   "-c","logging_collector=on",\
-#   "-c","max_wal_size=2GB",\
-#   "-c","shared_buffers=512MB",\
-#   "-c","wal_compression=on",\
-#   "-c", "hba_file=/var/lib/postgresql/pg_hba.conf",\
-#   "-c", "ssl=on",\
-#   "-c", "ssl_cert_file=/var/lib/postgresql/postgres.crt",
-# "-c", "ssl_key_file=/var/lib/postgresql/postgres.key",
-# "-c", "ssl_ca_file=/var/lib/postgresql/ca.crt" ]
+# CMD [ 'postgres', "-c", "shared_preload_libraries=vectors.so", "-c", 'search_path="$$user", public, vectors',"-c","logging_collector=on","-c","max_wal_size=2GB","-c","shared_buffers=512MB","-c","wal_compression=on","-c", "hba_file=/var/lib/postgresql/pg_hba.conf","-c", "ssl=on","-c", "ssl_cert_file=/var/lib/postgresql/postgres.crt","-c", "ssl_key_file=/var/lib/postgresql/postgres.key","-c", "ssl_ca_file=/var/lib/postgresql/ca.crt" ]
+

@@ -247,17 +247,6 @@ x-redis-tls: &x-redis_tls
   image: &redis_tls-image bitnami/redis:latest
   #? Using mTLS with redis
   #* command: redis-server --tls-port 6379 --tls-cert-file /data/redis.crt --tls-key-file /data/redis.key --tls-ca-cert-file /data/redis.crt
-  #* command:
-  # chown redis:redis /data/${REDIS_TLS_CA_FILE} && \
-  # chmod -Rf 640 /data/${REDIS_TLS_CA_FILE} && \
-  # chown -R redis:redis /data/${REDIS_SERVER_TLS_PATH} && \
-  # chmod -Rf 640 /data/${REDIS_SERVER_TLS_PATH} && \
-  # chown -R redis:redis /data/${REDIS_CLIENT_TLS_PATH} && \
-  # chmod -Rf 640 /data/${REDIS_CLIENT_TLS_PATH} && \
-  # --tls-cert-file=/data/${REDIS_SERVER_TLS_PATH}/${REDIS_TLS_CERT_FILE} \
-  # --tls-key-file=/data/${REDIS_SERVER_TLS_PATH}/${REDIS_TLS_KEY_FILE} \
-  # --tls-ca-cert-file=/data/${REDIS_TLS_CA_FILE} \
-  # --tls-auth-clients=${REDIS_TLS_ENABLED}
   #? For client connection use
   #* entrypoint: redis-cli
   #* command: -h redis-server -p 6379 --tls --cacert /certs/ca.crt --cert /certs/client.crt --key /certs/client.key
@@ -375,6 +364,8 @@ services:
 
     image: *postgresdb_tls-image
     build: *postgresdb_tls-build
+    command: |
+      postgres -c shared_preload_libraries=vectors.so -c 'search_path="$$user", public, vectors' -c logging_collector=on -c max_wal_size=2GB -c shared_buffers=512MB -c wal_compression=on -c hba_file=/var/lib/postgresql/pg_hba.conf -c ssl=on -c ssl_cert_file=/var/lib/postgresql/postgres.crt -c ssl_key_file=/var/lib/postgresql/postgres.key -c ssl_ca_file=/var/lib/postgresql/ca.crt
     restart: *common-postgresdb-restart
     healthcheck: *common-postgresdb-healthcheck
     environment: *postgresdb_tls-env
