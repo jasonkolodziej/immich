@@ -185,10 +185,11 @@ x-postgresdb-tls: &x-postgresdb_tls
   #* ${DB_CERTS_LOCATION}:/usr/local/postgresql/data
   # ${DB_CERTS_LOCATION}:/var/lib/postgresql/certs
   volumes: &postgresdb_tls-volumes
-    - ${DB_DATA_LOCATION}:/var/lib/postgresql/data
     # - ${DB_CERTS_LOCATION}/server/${DB_TLS_CERT_FILE}:/var/lib/postgresql/data
     # - ${DB_CERTS_LOCATION}/server/${DB_TLS_KEY_FILE}:/var/lib/postgresql/data
     # - ${DB_CERTS_LOCATION}/${DB_TLS_CA_FILE}:/var/lib/postgresql/data
+    # - ./config/postgres/pg_hba.conf:/var/lib/postgresql/data
+    - ${DB_DATA_LOCATION}:/var/lib/postgresql/data
 
   environment: &postgresdb_tls-env
     <<: [*postgresdb_pw-env, *immich_tls-env]
@@ -251,7 +252,7 @@ x-redis-tls: &x-redis_tls
   #* entrypoint: redis-cli
   #* command: -h redis-server -p 6379 --tls --cacert /certs/ca.crt --cert /certs/client.crt --key /certs/client.key
   command: &redis_tls-command |
-    redis-server
+    redis-server /usr/local/etc/redis/redis.conf
 
   healthcheck: &redis_tls-healthcheck
     <<: *common-redis-healthcheck
@@ -273,8 +274,10 @@ x-redis-tls: &x-redis_tls
   #     ${REDIS_CERTS_LOCATION}:/usr/local/etc/redis
   # ./config/redis.conf:/usr/local/etc/redis/redis.conf
   volumes: &redis_tls-volumes
-    - ./config/redis.conf:/usr/local/etc/redis
-    - ${REDIS_CERTS_LOCATION}/server:/usr/local/etc/redis/server
+    - ./config/redis/redis.conf:/usr/local/etc/redis/redis.conf
+    - ${REDIS_CERTS_LOCATION}/${REDIS_TLS_CA_FILE}:/usr/local/etc/redis/${REDIS_TLS_CA_FILE}
+    - ${REDIS_CERTS_LOCATION}/server/${REDIS_TLS_CERT_FILE}:/usr/local/etc/redis/server/${REDIS_TLS_CERT_FILE}
+    - ${REDIS_CERTS_LOCATION}/server/${REDIS_TLS_KEY_FILE}:/usr/local/etc/redis/server/${REDIS_TLS_KEY_FILE}
 
 #? End of all service configurations
 
@@ -364,7 +367,7 @@ services:
 
     image: *postgresdb_tls-image
     build: *postgresdb_tls-build
-    command: postgres -c shared_preload_libraries=vectors.so -c 'search_path="$$user", public, vectors' -c logging_collector=on -c max_wal_size=2GB -c shared_buffers=512MB -c wal_compression=on -c hba_file='/var/lib/postgresql/pg_hba.conf' -c ssl=on -c ssl_cert_file='/var/lib/postgresql/data/postgres.crt' -c ssl_key_file='/var/lib/postgresq/data/postgres.key' -c ssl_ca_file='/var/lib/postgresql/data/ca.crt'
+    command: postgres -c shared_preload_libraries=vectors.so -c 'search_path="$$user", public, vectors' -c logging_collector=on -c max_wal_size=2GB -c shared_buffers=512MB -c wal_compression=on -c hba_file='/var/lib/postgresql/pg_hba.conf' -c ssl=on -c ssl_cert_file='/var/lib/postgresql/postgres.crt' -c ssl_key_file='/var/lib/postgresql/postgres.key' -c ssl_ca_file='/var/lib/postgresql/ca.crt'
     # command: id postgres
     restart: *common-postgresdb-restart
     healthcheck: *common-postgresdb-healthcheck
