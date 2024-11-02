@@ -1,3 +1,4 @@
+import { type ConnectionOptions } from 'node:tls';
 export enum DatabaseExtension {
   CUBE = 'cube',
   EARTH_DISTANCE = 'earthdistance',
@@ -24,7 +25,7 @@ export type DatabaseConnectionParts = {
   database: string;
   //? ssl - this object will be passed to the TLSSocket constructor
   ssl?: TLSCommonConnectionParams;
-};
+} & Partial<ConnectionOptions>;
 
 /**
   * ### TLSCommonConnectionParams
@@ -44,11 +45,16 @@ export type DatabaseConnectionParts = {
   * @param cert: string; //* path/to/client-certificates/service.crt
  */
 export type TLSCommonConnectionParams = { //? ssl object or tls object
+  //  If not false, the server certificate is verified against the list of supplied CAs.
+  // An 'error' event is emitted if verification fails; err.code contains the OpenSSL error code. Default: true.
   rejectUnauthorized?: boolean;
   ca: string; //* path/to/server-certificates/root.crt
   key: string; //* path/to/client-key/service.key
   cert: string; //* path/to/client-certificates/service.crt
-}
+  servername?: string; // https://nodejs.org/api/tls.html#tlsconnectoptions-callback
+   // Necessary only if the server's cert isn't for "localhost".
+   checkServerIdentity: (servername:string, cert: Object) => Error | undefined,
+};
 
 
 export type DatabaseConnectionParams = DatabaseConnectionURL | DatabaseConnectionParts;
