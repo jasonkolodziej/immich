@@ -151,16 +151,17 @@ x-postgresdb-pw: &x-postgresdb_pw
     POSTGRES_DB: '${DB_DATABASE_NAME}' #? Database Name - Required for `backup` and `database` services
     POSTGRES_HOST: '${DB_HOSTNAME}' #? Database Hostname - Required for `backup` and `database` services
 
-x-postgresdb-tls: &x-postgresdb_tls
+x-postgresdb-tls:
+  &x-postgresdb_tls # image: &postgresdb_tls-image tensorchord/pgvecto-rs:pg14-v0.2.0
   image: &postgresdb_tls-image pgvectors-tls:latest
   build: &postgresdb_tls-build
     context: ../
     dockerfile: docker/pg.Dockerfile
     target: pgvector
     no_cache: true
-    # args:
-    #   BASE_IMAGE: 'postgres:14-alpine'
-    #   POSTGRES_VERSION: '14'
+  # args:
+  #   BASE_IMAGE: 'postgres:14-alpine'
+  #   POSTGRES_VERSION: '14'
   # command: &postgresdb_tls-command >-
   #   chown postgres /var/lib/postgresql/data/${DB_TLS_CA_FILE} &&
   #   chmod 640 /var/lib/postgresql/data/${DB_TLS_CA_FILE} &&
@@ -185,18 +186,24 @@ x-postgresdb-tls: &x-postgresdb_tls
   #* ${DB_CERTS_LOCATION}:/usr/local/postgresql/data
   # ${DB_CERTS_LOCATION}:/var/lib/postgresql/certs
   volumes: &postgresdb_tls-volumes
-    # - ${DB_CERTS_LOCATION}/server/${DB_TLS_CERT_FILE}:/var/lib/postgresql/data
-    # - ${DB_CERTS_LOCATION}/server/${DB_TLS_KEY_FILE}:/var/lib/postgresql/data
-    # - ${DB_CERTS_LOCATION}/${DB_TLS_CA_FILE}:/var/lib/postgresql/data
-    # - ./config/postgres/pg_hba.conf:/var/lib/postgresql/data
+    # - ${DB_CERTS_LOCATION}/server/${DB_TLS_CERT_FILE}:/var/lib/postgresql/certs/server/${DB_TLS_CERT_FILE}:rw
+    # - ${DB_CERTS_LOCATION}/server/${DB_TLS_KEY_FILE}:/var/lib/postgresql/certs/server/${DB_TLS_KEY_FILE}:rw
     - ${DB_DATA_LOCATION}:/var/lib/postgresql/data
+    # - ${DB_CERTS_LOCATION}/${DB_TLS_CA_FILE}:/var/lib/postgresql/certs/${DB_TLS_CA_FILE}:ro
+    # - ${DB_CERTS_LOCATION}/server:/var/lib/postgresql/certs/server:ro
+    # - ${DB_CERTS_LOCATION}/client:/var/lib/postgresql/certs/client:ro
+    # - ./config/postgres/pg_hba.conf:/var/lib/postgresql/data
 
   environment: &postgresdb_tls-env
     <<: [*postgresdb_pw-env, *immich_tls-env]
-    # PGSSLMODE: 'perfer'
-    # PGSSLCERT: /usr/local/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_CERT_FILE}
-    # PGSSLKEY: /usr/local/postgresql/${DB_SERVER_TLS_PATH}/${DB_TLS_KEY_FILE}
-    # PGSSLROOTCERT: /usr/local/postgresql/${DB_TLS_CA_FILE}
+    #? TLS is required, and server certificates are validated (based on WebPKI).
+    #? I want my data to be encrypted, and I accept the overhead. I trust that the network will make sure I always connect to the server I want.
+    PGSSLMODE: 'require'
+    #? Client certificates are required for authentication.
+    PGSSLCERT: /var/lib/postgresql/certs/${DB_CLIENT_TLS_PATH}/${DB_TLS_CERT_FILE}
+    #? Client key is required for authentication.
+    PGSSLKEY: /var/lib/postgresql/certs/${DB_CLIENT_TLS_PATH}/${DB_TLS_KEY_FILE}
+    PGSSLROOTCERT: /var/lib/postgresql/certs/${DB_TLS_CA_FILE}
     # #? for certificates
     # DB_CERTS_LOCATION: ${DB_CERTS_LOCATION:-"$IMMICH_CERTS_LOCATION/postgres"}
     # DB_TLS_CERT_FILE: $DB_CERTS_LOCATION/server/${DB_TLS_CERT_FILENAME}
@@ -367,7 +374,8 @@ services:
 
     image: *postgresdb_tls-image
     build: *postgresdb_tls-build
-    command: postgres -c shared_preload_libraries=vectors.so -c 'search_path="$$user", public, vectors' -c logging_collector=on -c max_wal_size=2GB -c shared_buffers=512MB -c wal_compression=on -c hba_file='/var/lib/postgresql/pg_hba.conf' -c ssl=on -c ssl_cert_file='/var/lib/postgresql/postgres.crt' -c ssl_key_file='/var/lib/postgresql/postgres.key' -c ssl_ca_file='/var/lib/postgresql/ca.crt'
+    # -c hba_file='/var/lib/postgresql/pg_hba.conf'
+    command: postgres -c shared_preload_libraries=vectors.so -c 'search_path="$$user", public, vectors' -c logging_collector=on -c max_wal_size=2GB -c shared_buffers=512MB -c wal_compression=on -c ssl=on -c ssl_cert_file='/var/lib/postgresql/certs/server/postgres.crt' -c ssl_key_file='/var/lib/postgresql/certs/server/postgres.key' -c ssl_ca_file='/var/lib/postgresql/certs/ca.crt'
     # command: id postgres
     restart: *common-postgresdb-restart
     healthcheck: *common-postgresdb-healthcheck

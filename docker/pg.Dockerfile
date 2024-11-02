@@ -1,21 +1,34 @@
 # This Dockerfile contains the image specification of our database
 #? Refer to: https://dev.to/danvixent/how-to-setup-postgresql-with-ssl-inside-a-docker-container-5f3
 FROM scratch AS cert-inserter
-WORKDIR /var/lib/postgresql
-COPY docker/ssl/postgres/server/postgres.key /var/lib/postgresql
-COPY docker/ssl/postgres/server/postgres.crt /var/lib/postgresql
 
-COPY docker/ssl/postgres/ca.crt /var/lib/postgresql
-# COPY docker/ssl/postgres/ca.crl /var/lib/postgresql
+WORKDIR /var/lib/postgresql/certs
+COPY docker/ssl/postgres/ca.crt .
+# COPY docker/ssl/postgres/ca.crl /var/lib/postgresql/certs
+
+WORKDIR /var/lib/postgresql/certs/server
+#* server
+COPY docker/ssl/postgres/server/ .
+
+#* client
+WORKDIR /var/lib/postgresql/certs/client
+COPY docker/ssl/postgres/client/ .
+# COPY docker/ssl/postgres/server/postgres.key /var/lib/postgresql/certs/server
+# COPY docker/ssl/postgres/server/postgres.crt /var/lib/postgresql/certs/server
+# client
+# COPY docker/ssl/postgres/client/postgres.key /var/lib/postgresql/certs/client
+# COPY docker/ssl/postgres/client/postgres.crt /var/lib/postgresql/certs/client
+
+
 
 #? Hostbased Auth config
-COPY docker/config/postgres/pg_hba.conf /var/lib/postgresql
-COPY docker/config/postgres/postgresql.conf /var/lib/postgresql
+# COPY docker/config/postgres/pg_hba.conf /var/lib/postgresql
+# COPY docker/config/postgres/postgresql.conf /var/lib/postgresql
 #? echo ssl setting into pg_hba.conf configuration file
 # WORKDIR /usr/local/bin
 # COPY ./ssl-conf.sh /usr/local/bin
 
-WORKDIR /var/lib/postgresql/data
+# WORKDIR /var/lib/postgresql/data
 #? Hostbased Auth config
 # COPY docker/config/postgres/pg_hba.conf /var/lib/postgresql/data
 # COPY docker/config/postgres/postgresql.conf /var/lib/postgresql/data
@@ -26,16 +39,18 @@ WORKDIR /var/lib/postgresql/data
 
 FROM postgres:13-alpine AS pg-alpine
 
-COPY --from=cert-inserter /var/lib/postgresql/data/* /var/lib/postgresql/data/*
-# COPY --from=cert-inserter /usr/local/bin/ssl-conf.sh /usr/local/bin/ssl-conf.sh
-
 #* 70:70 for alpine, 999:999 for debian
 #* postgres:postgres for alpine, postgres:postgres for debian
 #* 640 when using 0:70 | 0:999 || 600 when using 70:70 | 999:999
 #? Alpine related
-RUN chown 0:70 /var/lib/postgresql/data/postgres.key && chmod 640 /var/lib/postgresql/data/postgres.key
-RUN chown 0:70 /var/lib/postgresql/data/postgres.crt && chmod 640 /var/lib/postgresql/data/postgres.crt
-RUN chown 0:70 /var/lib/postgresql/data/ca.crt && chmod 640 /var/lib/postgresql/data/ca.crt
+COPY --from=cert-inserter --chown=0:70 /var/lib/postgresql/certs/* /var/lib/postgresql/certs
+RUN chmod 640 /var/lib/postgresql/certs/server/postgres.key
+RUN chmod 640 /var/lib/postgresql/certs/server/postgres.crt
+RUN chmod 640 /var/lib/postgresql/certs/client/postgres.key
+RUN chmod 640 /var/lib/postgresql/certs/client/postgres.crt
+RUN chmod 640 /var/lib/postgresql/certs/ca.crt
+# RUN chown 0:70 /var/lib/postgresql/data/postgres.crt && chmod 640 /var/lib/postgresql/data/postgres.crt
+# RUN chown 0:70 /var/lib/postgresql/data/ca.crt && chmod 640 /var/lib/postgresql/data/ca.crt
 # RUN chown 0:70 /var/lib/postgresql/ca.crl && chmod 640 /var/lib/postgresql/ca.crl
 
 
@@ -50,6 +65,7 @@ COPY --from=cert-inserter /var/lib/postgresql/data /var/lib/postgresql/data
 # COPY --from=cert-inserter /usr/local/bin/ssl-conf.sh /usr/local/bin/ssl-conf.sh
 
 #? Debian Related images
+# TODO: alter the permissions of the files
 RUN chown 0:999 /var/lib/postgresql/data/postgres.key && chmod 640 /var/lib/postgresql/data/postgres.key
 RUN chown 0:999 /var/lib/postgresql/data/postgres.crt && chmod 640 /var/lib/postgresql/data/postgres.crt
 RUN chown 0:999 /var/lib/postgresql/data/ca.crt && chmod 640 /var/lib/postgresql/data/ca.crt
@@ -73,14 +89,20 @@ FROM tensorchord/pgvecto-rs:pg14-v0.2.0 AS pgvector
 #   '-c' 'wal_compression=on' \
 #   ]
 
-COPY --from=cert-inserter /var/lib/postgresql/ /var/lib/postgresql
-# COPY --from=cert-inserter /usr/local/bin/ssl-conf.sh /usr/local/bin/ssl-conf.sh
+# COPY --from=cert-inserter /var/lib/postgresql/ /var/lib/postgresql
 
 #? Debian Related images
-RUN chown 0:999 /var/lib/postgresql/postgres.key && chmod 640 /var/lib/postgresql/postgres.key
-RUN chown 0:999 /var/lib/postgresql/postgres.crt && chmod 640 /var/lib/postgresql/postgres.crt
-RUN chown 0:999 /var/lib/postgresql/ca.crt && chmod 640 /var/lib/postgresql/ca.crt
-# RUN chown 0:999 /var/lib/postgresql/data/ca.crl && chmod 640 /var/lib/postgresql/data/ca.crl
+COPY --from=cert-inserter /var/lib/postgresql/ /var/lib/postgresql
+
+RUN chown 0:999 /var/lib/postgresql/certs/server/postgres.key && chmod 640 /var/lib/postgresql/certs/server/postgres.key
+RUN chown 0:999 /var/lib/postgresql/certs/server/postgres.crt && chmod 640 /var/lib/postgresql/certs/server/postgres.crt
+RUN chown 0:999 /var/lib/postgresql/certs/server/postgres.crt && chmod 640 /var/lib/postgresql/certs/client/postgres.key
+RUN chown 0:999 /var/lib/postgresql/certs/client/postgres.crt && chmod 640 /var/lib/postgresql/certs/client/postgres.crt
+RUN chown 0:999 /var/lib/postgresql/certs/ca.crt && chmod 640 /var/lib/postgresql/certs/ca.crt
+
+# RUN chown 0:999 /var/lib/postgresql/postgres.key && chmod 640 /var/lib/postgresql/postgres.key
+# RUN chown 0:999 /var/lib/postgresql/postgres.crt && chmod 640 /var/lib/postgresql/postgres.crt
+# RUN chown 0:999 /var/lib/postgresql/ca.crt && chmod 640 /var/lib/postgresql/ca.crt
 
 # ENTRYPOINT ["docker-entrypoint.sh"]
 
