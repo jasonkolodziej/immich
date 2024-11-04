@@ -30,7 +30,8 @@ fi
 unset IMMICH_CERTS_LOCATION
 unset REDIS_CERTS_LOCATION
 unset DB_CERTS_LOCATION
-export IMMICH_CERTS_LOCATION="/usr/src/app/certs"
+# export IMMICH_CERTS_LOCATION="/usr/src/app/certs"
+export IMMICH_CERTS_LOCATION="/usr/local/share/ca-certificates"
 export REDIS_CERTS_LOCATION=${IMMICH_CERTS_LOCATION}/redis
 export DB_CERTS_LOCATION=${IMMICH_CERTS_LOCATION}/postgres
 # IMMICH_CERTS_LOCATION="/usr/src/app/certs"

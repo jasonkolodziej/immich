@@ -1,6 +1,16 @@
 # dev build
 FROM ghcr.io/immich-app/base-server-dev:20241025@sha256:a55edebdb00f2cd034f99245612833ae4fbb05745f4b1503b8fc97f6a4311502 AS dev
-
+#* tls certificates
+#? Original - Install the ca-certificate package
+# RUN apt-get update && apt-get install -y ca-certificates
+#? Original - Copy the CA certificate from the context to the build container
+# COPY your_certificate.crt /usr/local/share/ca-certificates/
+#? Modified - Mount the CA certificate from the context to the build container
+# VOLUME /usr/local/share/ca-certificates/
+# Update the CA certificates in the container
+# RUN update-ca-certificates
+# RUN ls -al /usr/local/share/ca-certificates/
+# original
 RUN apt-get install --no-install-recommends -yqq tini
 WORKDIR /usr/src/app
 COPY server/package.json server/package-lock.json ./

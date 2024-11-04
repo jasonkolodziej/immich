@@ -305,7 +305,8 @@ services:
       - ${UPLOAD_LOCATION}/photos:/usr/src/app/upload
       - /etc/localtime:/etc/localtime:ro
         #? SSL
-      - ${IMMICH_CERTS_LOCATION}:/usr/src/app/certs
+      # - ${IMMICH_CERTS_LOCATION}:/usr/src/app/certs
+      - ${IMMICH_CERTS_LOCATION}/:/usr/local/share/ca-certificates/
     networks:
       immich_backend:
         aliases:
