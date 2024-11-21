@@ -108,6 +108,10 @@ x-immich-postgres-db:
     DB_PORT: 5432 #? DB Port
     DB_DATABASE_NAME: '${DB_DATABASE_NAME:-immich}' #? Database Name
     # DB_URL: "${DB_URL:-postgresql://${DB_USERNAME}:${DB_PASSWORD}@${DB_HOSTNAME}:${DB_PORT}/${DB_DATABASE_NAME}?sslmode=require}" #? Database URL
+    #? require a SSL connection to Postgres
+    # DB_URL='postgresql://immichdbusername:immichdbpassword@postgreshost:postgresport/immichdatabasename?sslmode=require'
+    #? require a SSL connection, but don't enforce checking the certificate name
+    # DB_URL='postgresql://immichdbusername:immichdbpassword@postgreshost:postgresport/immichdatabasename?sslmode=require&sslmode=no-verify'
     #? DB Vector Extension
     #! One of [pgvecto.rs, pgvector]
     #! This setting cannot be changed after the server has successfully started up.

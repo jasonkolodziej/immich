@@ -53,7 +53,17 @@ RUN npm run build
 
 # prod build
 FROM ghcr.io/immich-app/base-server-prod:20241025@sha256:ee25f3135ee6e70810c810cd9789068594ffb1a48e7c28fe77303553e904979e
-
+#* tls certificates
+#? Original - Install the ca-certificate package
+RUN apt-get update && apt-get install -y openssl ca-certificates libjpeg62-turbo
+#? Original - Copy the CA certificate from the context to the build container
+# COPY your_certificate.crt /usr/local/share/ca-certificates/
+#? Modified - Mount the CA certificate from the context to the build container
+VOLUME /usr/local/share/ca-certificates/
+# Update the CA certificates in the container
+RUN update-ca-certificates
+# RUN ls -al /usr/local/share/ca-certificates/
+#* Original
 WORKDIR /usr/src/app
 ENV NODE_ENV=production \
   NVIDIA_DRIVER_CAPABILITIES=all \
